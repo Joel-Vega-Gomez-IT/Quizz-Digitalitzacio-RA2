@@ -1,0 +1,543 @@
+<!--
+  PARTS CONFIGURABLES DEL CODI:
+
+  1. Bancs de preguntes:
+     - Arrays 'preguntasRA1' i 'preguntasRA2' a l’inici de l’script.
+     - Cada pregunta té:
+       - 'pregunta': text de la pregunta
+       - 'opciones': array amb opcions de resposta
+       - 'respuesta': índex (0-based) de l'opció correcta
+     - Pots afegir, modificar o eliminar preguntes i opcions segons necessitis.
+
+  2. Configuració de selecció de RA:
+     - Botons dins el div amb id="ra-buttons".
+     - Opcions disponibles: 'ambos', 'ra1', 'ra2'.
+     - Per afegir més categories o canviar noms, modifica aquest grup i lògica al script.
+
+  3. Configuració nombre de preguntes:
+     - Botons dins el div amb id="numPreguntas-buttons".
+     - Opcions: 10, 20, 30, 40, 50 i 'todas'.
+     - Pots modificar, afegir o eliminar valors.
+
+  4. Límits per defecte:
+     - Valor per defecte de 'totalPreguntas' (30).
+     - Comprovació que no es demanin més preguntes de les disponibles.
+     - Si vols canviar valors per defecte, modifica la variable 'totalPreguntas' o el codi al botó d'iniciar.
+
+  5. Estils CSS:
+     - Pots modificar colors, fonts i disposició dins la secció `<style>`.
+     - Classes importants per respostes: 
+       - .seleccionada (opció seleccionada)
+       - .correcta (resposta correcta)
+       - .incorrecta (resposta errònia)
+     - Botons i contenidors tenen classes i id per fer més fàcil la personalització.
+
+  6. Textos de botons i missatges:
+     - Textos com "Confirmar", "Següent", "Anterior", "Incorrecte", etc. estan dins l'HTML o l’script.
+     - Pots traduir o canviar aquests textos a la part HTML i dins les funcions JS.
+
+  7. Funcionalitats:
+     - Revisió de respostes després de finalitzar el quiz.
+     - Reinici del quiz.
+     - Barreja aleatòria de preguntes (funció mezclarArray).
+     - Limitació de navegació (botons anterior/següent).
+
+  8. Estructura general:
+     - Divs #config-container i #quiz-container separen la configuració de la prova i la pròpia prova.
+     - Si vols afegir més fases o canviar la navegació, modifica aquestes parts.
+
+  -----------------------------------------------
+  Per afegir preguntes noves, segueix l'estructura:
+
+    {
+      pregunta: "Text de la pregunta",
+      opciones: ["Opció 1", "Opció 2", "Opció 3", "Opció 4"],
+      respuesta: índex_de_la_opció_correcta (0-based)
+    }
+
+  -----------------------------------------------
+-->
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quiz RA1 / RA2 - Personalitzable</title>
+  
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 10px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .pregunta {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin: 8px 0;
+      padding: 12px;
+      font-size: 1em;
+      cursor: pointer;
+      border: 1px solid #333;
+      background-color: #eee;
+      border-radius: 5px;
+      transition: background-color 0.3s, transform 0.1s;
+    }
+    button:hover:not(:disabled) {
+      background-color: #ddd;
+    }
+    button:disabled {
+      cursor: default;
+      opacity: 0.8;
+    }
+
+    .seleccionada { background-color: #cce5ff; border-color: #007bff; }
+    .correcta { background-color: #28a745 !important; color: white; border-color: #1e7e34; }
+    .incorrecta { background-color: #dc3545 !important; color: white; border-color: #b21f2d; }
+
+    #resultat {
+      margin-top: 25px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    #puntuatge {
+      margin-top: 20px;
+      font-size: 1.3em;
+      text-align: center;
+    }
+
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .nav-buttons button { width: 48%; }
+
+    #btnSeguent, #btnConfirmar, #btnAnterior, #btnRevision, #btnReiniciar, #btnIniciarQuiz {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #btnReiniciar { background-color: #28a745; }
+
+    #config-container {
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    /* Estils per grups de botons de selecció */
+    .grupo-botones {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0 30px 0;
+    }
+
+    .grupo-botones button {
+      width: 100px;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background-color: #eee;
+      color: #333;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .grupo-botones button.seleccionat {
+      background-color: #007BFF;
+      color: white;
+      border-color: #0056b3;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>😎 Quizz de pràctica BBDD 😎</h1>
+
+  <!-- Pantalla de configuració -->
+  <div id="config-container">
+    <h2>Configura el teu examen</h2>
+    <p><b>Selecciona el RA:</b></p>
+    <div id="ra-buttons" class="grupo-botones">
+      <button data-value="ambos" class="seleccionat">Ambdós</button>
+      <button data-value="ra1">RA1</button>
+      <button data-value="ra2">RA2</button>
+    </div>
+
+    <p><b>Quantes preguntes vols respondre?</b></p>
+    <div id="numPreguntas-buttons" class="grupo-botones">
+      <button data-value="10">10</button>
+      <button data-value="20">20</button>
+      <button data-value="30" class="seleccionat">30</button>
+      <button data-value="40">40</button>
+      <button data-value="50">50</button>
+      <button data-value="todas">Totes</button>
+    </div>
+
+    <button id="btnIniciarQuiz">Iniciar Quiz</button>
+  </div>
+
+  <!-- Contenidor principal del quiz -->
+  <div id="quiz-container" style="display:none;">
+    <div id="pregunta" class="pregunta"></div>
+    <div id="opciones"></div>
+    <div id="resultat"></div>
+    <button id="btnConfirmar" disabled>Confirmar</button>
+
+    <div class="nav-buttons">
+      <button id="btnAnterior" disabled>Anterior</button>
+      <button id="btnSeguent" disabled>Següent</button>
+    </div>
+
+    <button id="btnRevision" style="display:none;">Revisar respostes</button>
+    <button id="btnReiniciar" style="display:none;">Reiniciar Quiz</button>
+  </div>
+
+  <div id="puntuatge"></div>
+
+<script>
+  // 📘 RA1: Banc de preguntes
+  const preguntasRA1 = [
+{ pregunta: "Quina és la finalitat principal d'una base de dades?", opciones: ["Gestionar dades eficientment", "Crear programes", "Dissenyar hardware", "Programar en C++"], respuesta: 0 },
+{ pregunta: "Quin acrònim s'utilitza per Sistema Gestor de Bases de Dades?", opciones: ["SGBD", "SQL", "BD", "SGDB"], respuesta: 0 },
+{ pregunta: "Quin pas és necessari per crear una base de dades amb SQL?", opciones: ["Dissenyar la BD", "Manipular la BD amb SQL", "Totes les anteriors", "Cap de les anteriors"], respuesta: 2 },
+{ pregunta: "Quin tipus d'accés té un fitxer seqüencial?", opciones: ["Accés aleatori", "Accés seqüencial", "Accés per index", "Cap accés"], respuesta: 1 },
+{ pregunta: "Quin avantatge té l'accés directe (Random Access)?", opciones: ["Accés lent", "Accés ràpid", "No necessita programari específic", "Sense avantatges"], respuesta: 1 },
+{ pregunta: "Quina característica defineix un fitxer indexat?", opciones: ["Accés aleatori per posició", "Accés basat en un index de claus", "Només lectura", "S'usa en piles"], respuesta: 1 },
+{ pregunta: "Què és l'esquema d'una base de dades?", opciones: ["Dades emmagatzemades", "Descripció de l'estructura de la BD", "Un tipus de fitxer", "Un programa SQL"], respuesta: 1 },
+{ pregunta: "Quin nivell amaga com s'emmagatzemen físicament les dades?", opciones: ["Nivell Lògic", "Nivell Físic", "Nivell Extern", "Nivell Conceptual"], respuesta: 0 },
+{ pregunta: "Quin organisme va proposar els tres nivells de esquema el 1971?", opciones: ["ANSI", "CODASYL", "ISO", "IEEE"], respuesta: 1 },
+{ pregunta: "Quin nivell de l'arquitectura ANSI/SPARC mostra la visió global de la base de dades?", opciones: ["Esquema extern", "Esquema conceptual", "Esquema físic", "Nivell lògic"], respuesta: 1 },
+{ pregunta: "Quin nivell conté la descripció de l'organització física de la BD?", opciones: ["Esquema extern", "Esquema conceptual", "Esquema intern/físic", "Esquema lògic"], respuesta: 2 },
+{ pregunta: "Quan es realitza un canvi al nivell intern sense afectar l'extern, què s'ha produït?", opciones: ["Independència lògica", "Independència física", "Integritat referencial", "Cap canvi"], respuesta: 1 },
+{ pregunta: "Quin és el primer pas que fa un SGBD quan rep una consulta?", opciones: ["Carregar dades a memòria", "Verificar sintaxi i permisos", "Enviar dades al programa", "Transformar dades externes"], respuesta: 1 },
+{ pregunta: "Quina operació de l'àlgebra relacional combina totes les tuples de dues relacions?", opciones: ["Unió", "Producte cartesià", "Selecció", "Divisió"], respuesta: 1 },
+{ pregunta: "Quina operació selecciona només les files que compleixen una condició?", opciones: ["Selecció (σ)", "Projecció (π)", "Join", "Divisió"], respuesta: 0 },
+{ pregunta: "Quina operació extreu només determinades columnes d'una relació?", opciones: ["Selecció", "Projecció (π)", "Divisió", "Producte cartesià"], respuesta: 1 },
+{ pregunta: "Què garanteixen les claus foranes (foreign keys)?", opciones: ["Integritat referencial", "Independència física", "Unió de tuples", "Duplicació de dades"], respuesta: 0 },
+{ pregunta: "Quina forma normal evita valors repetits en cel·les?", opciones: ["1FN", "2FN", "3FN", "4FN"], respuesta: 0 },
+{ pregunta: "Quina forma normal elimina dependències parcials de la clau primària?", opciones: ["1FN", "2FN", "3FN", "4FN"], respuesta: 1 },
+{ pregunta: "Quina forma normal evita dependències entre columnes no clau?", opciones: ["1FN", "2FN", "3FN", "BCNF"], respuesta: 2 },
+{ pregunta: "Quina és la principal característica d'una base de dades jeràrquica?", opciones: ["Arbre invertit", "Taula amb columnes", "Claus foranes", "Unió de files"], respuesta: 0 },
+{ pregunta: "Quin model es basa en la teoria de conjunts i la lògica de predicats?", opciones: ["Jeràrquic", "Relacional", "Xarxa", "Orientat a objectes"], respuesta: 1 },
+{ pregunta: "Què és una relació en el model relacional?", opciones: ["Un arbre", "Una taula amb atributs i tuples", "Una columna", "Un registre físic"], respuesta: 1 },
+{ pregunta: "Què és un tuple en el model relacional?", opciones: ["Una fila d'una taula", "Una columna d'una taula", "Un índex", "Una base de dades"], respuesta: 0 },
+{ pregunta: "Què és la cardinalitat d'una relació?", opciones: ["Nombre de columnes", "Nombre de tuples", "Nom de la taula", "Clau primària"], respuesta: 1 },
+{ pregunta: "Què fa l'operació de divisió (÷) en àlgebra relacional?", opciones: ["Uneix tuples amb condicions", "Selecciona tuples relacionades amb totes de l'altra relació", "Combina totes les tuples", "Filtra files per atribut"], respuesta: 1 },
+{ pregunta: "Quin tipus de BBDD permet accedir a dades com si fossin una sola base de dades?", opciones: ["Centralitzada", "Distribuïda", "Fragmentada", "Replicada"], respuesta: 1 },
+{ pregunta: "Quina regla ACID garanteix que una transacció sigui totalment completada o no?", opciones: ["Atomicitat", "Consistència", "Aïllament", "Durabilitat"], respuesta: 0 },
+{ pregunta: "Quina distribució fa còpies completes en cada node?", opciones: ["Centralitzada", "Replicada", "Fragmentada", "Híbrida"], respuesta: 1 },
+{ pregunta: "Quina distribució fa que cada node emmagatzemi parts diferents de la BD?", opciones: ["Centralitzada", "Replicada", "Fragmentada", "Híbrida"], respuesta: 2 },
+{ pregunta: "Quina propietat garanteix que una clau forània sempre apunti a una fila vàlida?", opciones: ["Integritat referencial", "Independència física", "Divisió relacional", "Join"], respuesta: 0 },
+{ pregunta: "Quin tipus d’integritat fa que si K no és nul ha d'existir en S?", opciones: ["Débil", "Parcial", "Completa", "Total"], respuesta: 0 },
+{ pregunta: "Quin tipus d’integritat permet que alguns atributs de K siguin nuls?", opciones: ["Débil", "Parcial", "Completa", "Total"], respuesta: 1 },
+{ pregunta: "Quina estructura de dades fa servir FIFO?", opciones: ["Pila (Stack)", "Arbre binari", "Cua (Queue)", "Llista enllaçada"], respuesta: 2 },
+{ pregunta: "Quina operació de l'àlgebra relacional combina files que comparteixen atributs?", opciones: ["Selecció", "Join", "Producte cartesià", "Projecció"], respuesta: 1 },
+{ pregunta: "Què permet el principi d’informació en el model relacional?", opciones: ["Duplicar dades", "Representar tota la informació mitjançant tuples", "Eliminar claus", "Accés físic directe"], respuesta: 1 },
+{ pregunta: "Què fa l'operació de selecció en SQL equivalent?", opciones: ["WHERE", "SELECT", "JOIN", "GROUP BY"], respuesta: 0 },
+{ pregunta: "Què fa l'operació de projecció en SQL equivalent?", opciones: ["WHERE", "SELECT", "JOIN", "GROUP BY"], respuesta: 1 },
+{ pregunta: "Quin avantatge té una BD distribuïda?", opciones: ["Rapidesa i disponibilitat", "Complexitat alta", "Seguretat baixa", "Redundància total"], respuesta: 0 },
+{ pregunta: "Quin desavantatge té una BD distribuïda?", opciones: ["Seguretat complexa", "Ràpida", "Disponible", "Modular"], respuesta: 0 },
+{ pregunta: "Quin tipus de fitxer pot causar col·lisions si s’usa hashing?", opciones: ["Seqüencial", "Accés directe", "Indexat", "XML"], respuesta: 1 },
+{ pregunta: "Quina operació d'àlgebra relacional retorna les tuples comunes a dues relacions?", opciones: ["Unió", "Intersecció", "Diferència", "Producte cartesià"], respuesta: 1 },
+{ pregunta: "Quina operació retorna tuples que estan en T1 però no en T2?", opciones: ["Unió", "Intersecció", "Diferència", "Join"], respuesta: 2 },
+{ pregunta: "Quina persona defineix l'esquema conceptual d'una BD?", opciones: ["Usuari final", "ABD (Administrador de BD)", "Programador", "SGBD"], respuesta: 1 },
+{ pregunta: "Quin nivell extern permet modificar noms i atributs segons les necessitats de l'usuari?", opciones: ["Esquema extern", "Esquema conceptual", "Esquema intern", "Esquema físic"], respuesta: 0 },
+{ pregunta: "Què fa l'operació d'assignació (:=) en àlgebra relacional?", opciones: ["Assigna un nom a una nova relació", "Combina dues relacions", "Filtra files", "Elimina columnes"], respuesta: 0 },
+{ pregunta: "Quin avantatge té un fitxer indexat respecte al seqüencial?", opciones: ["Més flexible i ràpid", "Més lent", "No necessita index", "Només lectura"], respuesta: 0 },
+{ pregunta: "Quina és la unitat mínima d’informació en una relació?", opciones: ["Atribut", "Tuple", "Relvar", "Esquema"], respuesta: 1 },
+{ pregunta: "Quina regla evita que es creïn factures amb DNI inexistents?", opciones: ["Integritat referencial", "1FN", "Join", "Divisió"], respuesta: 0 },
+{ pregunta: "Quina estructura utilitza nodes sense pare i fulles per emmagatzemar dades?", opciones: ["Xarxa", "Jeràrquica", "Relacional", "Indexada"], respuesta: 1 },
+{ pregunta: "Quin model permet tipus de dades abstractes i orientació a objectes?", opciones: ["Jeràrquic", "Relacional orientat a objectes", "Xarxa", "Relacional"], respuesta: 1 },
+{ pregunta: "Quin nivell en ANSI/SPARC respon a preguntes de rendiment?", opciones: ["Externe", "Conceptual", "Intern/Físic", "Lògic"], respuesta: 2 },
+{ pregunta: "Quin llenguatge s'utilitza per crear i manipular BDs relacionals?", opciones: ["HTML", "SQL", "Python", "C++"], respuesta: 1 },
+{ pregunta: "Què fa l’operació Join natural?", opciones: ["Uneix files amb atributs comuns", "Combina totes les files", "Filtra columnes", "Assigna noms a relacions"], respuesta: 0 },
+{ pregunta: "Què fa l’Outer Join?", opciones: ["Manté també les files sense correspondència", "Combina totes les files", "Filtra tuples amb condicions", "Crea index"], respuesta: 0 },
+{ pregunta: "Què significa que una base de dades és consistent?", opciones: ["Totes les restriccions són certes", "Totes les restriccions són falses", "Hi ha duplicació de dades", "Hi ha errors de SQL"], respuesta: 0 },
+{ pregunta: "En què consisteix el concepte d’independència física de les dades en una arquitectura de tres nivells?", opciones: ["Els canvis a l'esquema intern no afecten l'esquema extern ni conceptual", "Els canvis lògics no afecten cap nivell", "El SGBD controla totes les consultes", "Les dades es repliquen automàticament"], respuesta: 0 },
+{ pregunta: "En què consisteix el concepte d’independència lògica de les dades en una arquitectura de tres nivells?", opciones: ["Els canvis a l'esquema conceptual no afecten els esquemes externs", "Els canvis físics afecten totes les consultes", "Els usuaris no poden veure les dades", "El SGBD elimina dades duplicades"], respuesta: 0 },
+{ pregunta: "Quins tipus d'atributs clau es fan servir en una base de dades?", opciones: ["Clau primària i clau forana", "Només clau secundària", "Index i punter", "Columnes i tuples"], respuesta: 0 },
+{ pregunta: "A què es refereix el concepte de mantenir la integritat referencial?", opciones: ["Que una clau forana sempre apunta a una fila vàlida en la taula referenciada", "Que les dades es poden eliminar lliurement", "Que els índexs es reben automàticament", "Que totes les consultes són ràpides"], respuesta: 0 },
+{ pregunta: "Què va definir l’estàndard ANSI/SPARC de bases de dades?", opciones: ["Una arquitectura de tres nivells per separar vista d'usuari i organització física", "El llenguatge SQL", "Els tipus de fitxers indexats", "El model relacional orientat a objectes"], respuesta: 0 },
+{ pregunta: "Nomena cinc models de bases de dades", opciones: ["Jeràrquic, Xarxa, Relacional, Relacional orientat a objectes, Distribuït", "SQL, MySQL, Oracle, PostgreSQL, MongoDB", "Indexat, Seqüencial, Aleatori, Hash, XML", "Extern, Conceptual, Intern, Físic, Lògic"], respuesta: 0 },
+{ pregunta: "Quina diferència hi ha entre un fitxer indexat i un d’accés directe?", opciones: ["L’indexat usa un index per trobar registres, l’accés directe usa posició", "No hi ha diferència", "L’accés directe és més lent que l’indexat", "L’indexat no permet consultar dades"], respuesta: 0 },
+{ pregunta: "Explica dos avantatges de les bases de dades distribuïdes", opciones: ["Rapidesa i disponibilitat", "Seguretat baixa i complexitat", "Redundància i cost alt", "Únic lloc de dades"], respuesta: 0 },
+{ pregunta: "Explica dos inconvenients de les bases de dades distribuïdes", opciones: ["Complexitat i seguretat complicada", "Ràpida i disponible", "Modular i barata", "Centralitzada i replicada"], respuesta: 0 },
+{ pregunta: "Quina és la finalitat d’un SGBD?", opciones: ["Permetre crear, emmagatzemar i manipular dades de manera eficient", "Fer gràfics i presentacions", "Programar en Java", "Gestionar sistemes operatius"], respuesta: 0 },
+{ pregunta: "Explica tres operacions de l’àlgebra relacional", opciones: ["Selecció (σ), Projecció (π), Join (⨝)", "INSERT, UPDATE, DELETE", "CREATE, DROP, ALTER", "Union, Diferència, Multiplicació de matrius"], respuesta: 0 }
+  ];
+
+  // 📗 RA2: Banc de preguntes
+  const preguntasRA2 = [
+    { pregunta: "Què significa JSON?", opciones: ["JavaScript Object Notation", "Java Standard Object Network", "Just Simple Object Naming", "Joint Source Online Network"], respuesta: 0 },
+    { pregunta: "Quina paraula clau defineix una constant a JavaScript?", opciones: ["let", "const", "var", "define"], respuesta: 1 },
+    { pregunta: "Quin operador s'usa per comparar igualtat estricta a JS?", opciones: ["==", "===", "=", "!="], respuesta: 1 },
+    { pregunta: "Quin llenguatge s'usa principalment per bases de dades?", opciones: ["Python", "SQL", "HTML", "C#"], respuesta: 1 },
+    { pregunta: "Quin comandament inicia un repositori Git?", opciones: ["git start", "git init", "git open", "git create"], respuesta: 1 },
+  ];
+
+  // 📚 Variables globals
+  let preguntas = [];
+  let totalPreguntas = 30;
+  let preguntaActual = 0;
+  let puntaje = 0;
+  let respuestasUsuario = [];
+  let modoRevision = false;
+  let opcionSeleccionada = null;
+
+  // 📦 Elements del DOM
+  const configContainer = document.getElementById('config-container');
+  const raButtons = document.getElementById('ra-buttons');
+  const numPreguntasButtons = document.getElementById('numPreguntas-buttons');
+  const btnIniciarQuiz = document.getElementById('btnIniciarQuiz');
+
+  const quizContainer = document.getElementById('quiz-container');
+  const preguntaEl = document.getElementById('pregunta');
+  const opcionesEl = document.getElementById('opciones');
+  const resultatEl = document.getElementById('resultat');
+  const btnConfirmar = document.getElementById('btnConfirmar');
+  const btnSeguent = document.getElementById('btnSeguent');
+  const btnAnterior = document.getElementById('btnAnterior');
+  const btnRevision = document.getElementById('btnRevision');
+  const btnReiniciar = document.getElementById('btnReiniciar');
+  const puntuatgeEl = document.getElementById('puntuatge');
+
+  // Funcions per manejar selecció botons configuració
+  function seleccionarBotonEnGrupo(container, boton) {
+    const botones = container.querySelectorAll('button');
+    botones.forEach(b => b.classList.remove('seleccionat'));
+    boton.classList.add('seleccionat');
+  }
+
+  // Esdeveniment per selecció RA
+  raButtons.addEventListener('click', e => {
+    if (e.target.tagName === 'BUTTON') {
+      seleccionarBotonEnGrupo(raButtons, e.target);
+    }
+  });
+
+  // Esdeveniment per selecció nombre de preguntes
+  numPreguntasButtons.addEventListener('click', e => {
+    if (e.target.tagName === 'BUTTON') {
+      seleccionarBotonEnGrupo(numPreguntasButtons, e.target);
+    }
+  });
+
+  // 🧩 Funció per barrejar aleatòriament un array
+  function mezclarArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  // 🎬 Inici del quiz després de configurar
+  btnIniciarQuiz.addEventListener('click', () => {
+    const raElegit = raButtons.querySelector('button.seleccionat').getAttribute('data-value');
+    const cantidadStr = numPreguntasButtons.querySelector('button.seleccionat').getAttribute('data-value');
+
+    // Seleccionar banc de preguntes segons RA
+    if (raElegit === "ra1") {
+      preguntas = [...preguntasRA1];
+    } else if (raElegit === "ra2") {
+      preguntas = [...preguntasRA2];
+    } else {
+      preguntas = [...preguntasRA1, ...preguntasRA2];
+    }
+
+    // Barrejar
+    mezclarArray(preguntas);
+
+    // Quantitat preguntes segons selecció
+    if (cantidadStr === 'todas') {
+      totalPreguntas = preguntas.length;
+    } else {
+      const cantidad = parseInt(cantidadStr);
+      totalPreguntas = (!isNaN(cantidad) && cantidad > 0) ? Math.min(cantidad, preguntas.length) : Math.min(30, preguntas.length);
+    }
+
+    preguntas = preguntas.slice(0, totalPreguntas);
+
+    // Canviar a vista quiz
+    configContainer.style.display = "none";
+    quizContainer.style.display = "block";
+
+    iniciarQuiz();
+  });
+
+  // 🚀 Lògica del quiz
+  function iniciarQuiz() {
+    preguntaActual = 0;
+    puntaje = 0;
+    respuestasUsuario = Array(totalPreguntas).fill(null);
+    modoRevision = false;
+    btnRevision.style.display = "none";
+    btnReiniciar.style.display = "none";
+    btnAnterior.style.display = "block";
+    btnSeguent.style.display = "block";
+    mostrarPregunta();
+  }
+
+  function mostrarPregunta() {
+    const pregunta = preguntas[preguntaActual];
+    const respuesta = respuestasUsuario[preguntaActual];
+
+    preguntaEl.textContent = `Pregunta ${preguntaActual + 1} de ${totalPreguntas}: ${pregunta.pregunta}`;
+    opcionesEl.innerHTML = "";
+    resultatEl.textContent = "";
+    btnConfirmar.disabled = true;
+
+    pregunta.opciones.forEach((opcion, index) => {
+      const btn = document.createElement('button');
+      btn.textContent = opcion;
+      btn.addEventListener('click', () => seleccionarOpcion(index, btn));
+      opcionesEl.appendChild(btn);
+    });
+
+    if (respuesta) {
+      const botones = opcionesEl.querySelectorAll('button');
+      botones.forEach(b => b.disabled = true);
+      botones[respuesta.correctaIndex].classList.add('correcta');
+      if (!respuesta.correcto) {
+        botones[respuesta.seleccionadaIndex].classList.add('incorrecta');
+        resultatEl.textContent = `Incorrecte ❌. La resposta correcta és: ${pregunta.opciones[pregunta.respuesta]}`;
+      } else {
+        resultatEl.textContent = "Correcte! 🤙";
+      }
+      btnConfirmar.disabled = true;
+    }
+
+    btnAnterior.disabled = preguntaActual === 0;
+    btnSeguent.disabled = !respuesta;
+
+    if (modoRevision) {
+      btnConfirmar.style.display = "none";
+      btnSeguent.textContent = preguntaActual === totalPreguntas - 1 ? "Finalitzar revisió" : "Següent";
+      btnSeguent.disabled = false;
+    } else {
+      btnConfirmar.style.display = "block";
+      btnSeguent.textContent = preguntaActual === totalPreguntas - 1 ? "Finalitzar" : "Següent";
+    }
+  }
+
+  function seleccionarOpcion(index, btn) {
+    if (respuestasUsuario[preguntaActual]) return;
+    const botones = opcionesEl.querySelectorAll('button');
+    botones.forEach(b => b.classList.remove('seleccionada'));
+    btn.classList.add('seleccionada');
+    opcionSeleccionada = index;
+    btnConfirmar.disabled = false;
+  }
+
+  btnConfirmar.addEventListener('click', () => {
+    if (opcionSeleccionada === null) return;
+    const pregunta = preguntas[preguntaActual];
+    const botones = opcionesEl.querySelectorAll('button');
+    botones.forEach(b => b.disabled = true);
+
+    const correcto = opcionSeleccionada === pregunta.respuesta;
+
+    if (correcto) {
+      botones[opcionSeleccionada].classList.remove('seleccionada');
+      botones[opcionSeleccionada].classList.add('correcta');
+      resultatEl.textContent = "Correcte! 🤙";
+      puntaje++;
+    } else {
+      botones[opcionSeleccionada].classList.remove('seleccionada');
+      botones[opcionSeleccionada].classList.add('incorrecta');
+      botones[pregunta.respuesta].classList.add('correcta');
+      resultatEl.textContent = `Incorrecte ❌. La resposta correcta és: ${pregunta.opciones[pregunta.respuesta]}`;
+    }
+
+    respuestasUsuario[preguntaActual] = {
+      seleccionadaIndex: opcionSeleccionada,
+      correctaIndex: pregunta.respuesta,
+      correcto
+    };
+
+    btnConfirmar.disabled = true;
+    btnSeguent.disabled = false;
+  });
+
+  btnSeguent.addEventListener('click', () => {
+    if (modoRevision) {
+      if (preguntaActual < totalPreguntas - 1) {
+        preguntaActual++;
+        mostrarPregunta();
+      } else {
+        mostrarResultados();
+      }
+      return;
+    }
+
+    if (preguntaActual < totalPreguntas - 1) {
+      preguntaActual++;
+      opcionSeleccionada = null;
+      mostrarPregunta();
+    } else {
+      mostrarResultados();
+    }
+  });
+
+  btnAnterior.addEventListener('click', () => {
+    if (preguntaActual > 0) {
+      preguntaActual--;
+      opcionSeleccionada = null;
+      mostrarPregunta();
+    }
+  });
+
+  function mostrarResultados() {
+    modoRevision = false;
+    preguntaEl.textContent = "Quiz acabat!";
+    opcionesEl.innerHTML = "";
+    resultatEl.innerHTML = "";
+
+    let resultadoHTML = "<h2>Resultats:</h2><ul>";
+    respuestasUsuario.forEach((r, i) => {
+      const p = preguntas[i];
+      resultadoHTML += `<li><b>Pregunta ${i + 1}:</b> ${p.pregunta}<br>
+        La teva resposta: ${p.opciones[r.seleccionadaIndex]} ${r.correcto ? "✅" : "❌"}<br>
+        Resposta correcta: ${p.opciones[r.correctaIndex]}</li><br>`;
+    });
+    resultadoHTML += "</ul>";
+
+    resultatEl.innerHTML = resultadoHTML;
+    puntuatgeEl.textContent = `Puntuació final: ${puntaje} de ${totalPreguntas}`;
+
+    btnConfirmar.style.display = "none";
+    btnAnterior.style.display = "none";
+    btnSeguent.style.display = "none";
+    btnRevision.style.display = "block";
+    btnReiniciar.style.display = "block";
+  }
+
+  btnRevision.addEventListener('click', () => {
+    modoRevision = true;
+    preguntaActual = 0;
+    btnRevision.style.display = "none";
+    btnReiniciar.style.display = "none";
+    btnAnterior.style.display = "block";
+    btnSeguent.style.display = "block";
+    mostrarPregunta();
+  });
+
+  btnReiniciar.addEventListener('click', () => location.reload());
+
+</script>
+
+</body>
+</html>
