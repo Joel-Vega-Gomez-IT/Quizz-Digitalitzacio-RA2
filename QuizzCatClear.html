@@ -1,0 +1,649 @@
+<!--
+  PARTS CONFIGURABLES DEL CODI:
+
+  1. Bancs de preguntes:
+     - Arrays 'preguntasRA1' i 'preguntasRA2' a l’inici de l’script.
+     - Cada pregunta té:
+       - 'pregunta': text de la pregunta
+       - 'opciones': array amb opcions de resposta
+       - 'respuesta': índex (0-based) de l'opció correcta
+     - Pots afegir, modificar o eliminar preguntes i opcions segons necessitis.
+
+  2. Configuració de selecció de RA:
+     - Botons dins el div amb id="ra-buttons".
+     - Opcions disponibles: 'ambos', 'ra1', 'ra2'.
+     - Per afegir més categories o canviar noms, modifica aquest grup i lògica al script.
+
+  3. Configuració nombre de preguntes:
+     - Botons dins el div amb id="numPreguntas-buttons".
+     - Opcions: 10, 20, 30, 40, 50 i 'todas'.
+     - Pots modificar, afegir o eliminar valors.
+
+  4. Límits per defecte:
+     - Valor per defecte de 'totalPreguntas' (30).
+     - Comprovació que no es demanin més preguntes de les disponibles.
+     - Si vols canviar valors per defecte, modifica la variable 'totalPreguntas' o el codi al botó d'iniciar.
+
+  5. Estils CSS:
+     - Pots modificar colors, fonts i disposició dins la secció `<style>`.
+     - Classes importants per respostes: 
+       - .seleccionada (opció seleccionada)
+       - .correcta (resposta correcta)
+       - .incorrecta (resposta errònia)
+     - Botons i contenidors tenen classes i id per fer més fàcil la personalització.
+
+  6. Textos de botons i missatges:
+     - Textos com "Confirmar", "Següent", "Anterior", "Incorrecte", etc. estan dins l'HTML o l’script.
+     - Pots traduir o canviar aquests textos a la part HTML i dins les funcions JS.
+
+  7. Funcionalitats:
+     - Revisió de respostes després de finalitzar el quiz.
+     - Reinici del quiz.
+     - Barreja aleatòria de preguntes (funció mezclarArray).
+     - Limitació de navegació (botons anterior/següent).
+
+  8. Estructura general:
+     - Divs #config-container i #quiz-container separen la configuració de la prova i la pròpia prova.
+     - Si vols afegir més fases o canviar la navegació, modifica aquestes parts.
+
+  -----------------------------------------------
+  Per afegir preguntes noves, segueix l'estructura:
+
+    {
+      pregunta: "Text de la pregunta",
+      opciones: ["Opció 1", "Opció 2", "Opció 3", "Opció 4"],
+      respuesta: índex_de_la_opció_correcta (0-based)
+    }
+
+  -----------------------------------------------
+-->
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <title>Quizz RA5</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 10px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .pregunta {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin: 8px 0;
+      padding: 12px;
+      font-size: 1em;
+      cursor: pointer;
+      border: 1px solid #333;
+      background-color: #eee;
+      border-radius: 5px;
+      transition: background-color 0.3s, transform 0.1s;
+    }
+    button:hover:not(:disabled) {
+      background-color: #ddd;
+    }
+    button:disabled {
+      cursor: default;
+      opacity: 0.8;
+    }
+
+    .seleccionada { background-color: #cce5ff; border-color: #007bff; }
+    .correcta { background-color: #28a745 !important; color: white; border-color: #1e7e34; }
+    .incorrecta { background-color: #dc3545 !important; color: white; border-color: #b21f2d; }
+
+    #resultat {
+      margin-top: 25px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    #puntuatge {
+      margin-top: 20px;
+      font-size: 1.3em;
+      text-align: center;
+    }
+
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .nav-buttons button { width: 48%; }
+
+    #btnSeguent, #btnConfirmar, #btnAnterior, #btnRevision, #btnReiniciar, #btnIniciarQuiz {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #btnReiniciar { background-color: #28a745; }
+
+    #config-container {
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    /* Estils per grups de botons de selecció */
+    .grupo-botones {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0 30px 0;
+    }
+
+    .grupo-botones button {
+      width: 100px;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background-color: #eee;
+      color: #333;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .grupo-botones button.seleccionat {
+      background-color: #007BFF;
+      color: white;
+      border-color: #0056b3;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>😎 Quizz de pràctica Digi 😎</h1>
+
+  <!-- Pantalla de configuració -->
+  <div id="config-container">
+    <h2>Configura el teu examen</h2>
+    <p><b>Selecciona el RA:</b></p>
+    <div id="ra-buttons" class="grupo-botones">
+      <button data-value="ambos" class="seleccionat">Ambdós</button>
+      <!-- <button data-value="ra1">RA1lala</button>
+      <button data-value="ra2">RA2</button> -->
+    </div>
+
+    <p><b>Quantes preguntes vols respondre?</b></p>
+    <div id="numPreguntas-buttons" class="grupo-botones">
+      <button data-value="10">10</button>
+      <button data-value="20">20</button>
+      <button data-value="30" class="seleccionat">30</button>
+      <button data-value="40">40</button>
+      <button data-value="50">50</button>
+      <button data-value="todas">Totes</button>
+    </div>
+
+    <button id="btnIniciarQuiz">Iniciar Quiz</button>
+  </div>
+
+  <!-- Contenidor principal del quiz -->
+  <div id="quiz-container" style="display:none;">
+    <div id="pregunta" class="pregunta"></div>
+    <div id="opciones"></div>
+    <div id="resultat"></div>
+    <button id="btnConfirmar" disabled>Confirmar</button>
+
+    <div class="nav-buttons">
+      <button id="btnAnterior" disabled>Anterior</button>
+      <button id="btnSeguent" disabled>Següent</button>
+    </div>
+
+    <button id="btnRevision" style="display:none;">Revisar respostes</button>
+    <button id="btnReiniciar" style="display:none;">Reiniciar Quiz</button>
+  </div>
+
+  <div id="puntuatge"></div>
+
+<script>
+  // 📘 RA1: Banc de preguntes
+  const preguntasRA1 = [];
+
+  // 📗 RA2: Banc de preguntes
+  const preguntasRA2 = [
+{ pregunta: "Quina és la funció principal de l'Internet de les Coses (IoT)?", opciones: ["Emmagatzemar dades massives", "Permetre la connexió i intercanvi de dades entre dispositius", "Crear models predictius complexos", "Generar energia renovable"], respuesta: 1 },
+{ pregunta: "Què permet el Big Data en el context empresarial?", opciones: ["Automatitzar robots col·laboratius", "Analitzar grans volums de dades per millorar la presa de decisions", "Controlar dispositius IoT en temps real", "Crear jocs virtuals immersius"], respuesta: 1 },
+{ pregunta: "Quina tasca pot realitzar la Intel·ligència Artificial (IA)?", opciones: ["Emmagatzemar dades en el núvol", "Aprendre de les dades i realitzar tasques complexes", "Fabricar objectes tridimensionals", "Controlar turbines eòliques"], respuesta: 1 },
+{ pregunta: "Què defineix l'Aprenentatge Automàtic (Machine Learning)?", opciones: ["Software per gestionar ERP", "Subcamp de la IA que aprèn de dades sense programació explícita", "Xarxes que transmeten dades a alta velocitat", "Robots per assistència mèdica"], respuesta: 1 },
+{ pregunta: "Quina característica principal té Blockchain?", opciones: ["Centralitza les dades empresarials", "Permet registrar transaccions de manera segura i transparent", "Automatitza la producció industrial", "Millora la visualització de dades"], respuesta: 1 },
+{ pregunta: "Què ofereix el Cloud Computing?", opciones: ["Automatització de vehicles", "Provisió de serveis informàtics a través d'Internet", "Interacció home-màquina", "Creació de bessons digitals"], respuesta: 1 },
+{ pregunta: "Quina aplicació és típica de la Robòtica Avançada?", opciones: ["Assistents virtuals", "Robots col·laboratius en fàbriques", "Predicció de mercats", "Disseny de materials nanomètrics"], respuesta: 1 },
+{ pregunta: "Quina diferència hi ha entre AR i VR?", opciones: ["AR crea entorns digitals, VR afegeix elements a la realitat", "AR és només per jocs, VR és només per formació", "AR afegeix elements digitals a la realitat, VR crea un entorn totalment digital", "No tenen diferències significatives"], respuesta: 2 },
+{ pregunta: "Quina avantatge proporciona la Impressió 3D?", opciones: ["Incrementa la seguretat cibernètica", "Permet crear objectes capa a capa a partir de models digitals", "Optimitza la gestió energètica", "Millora la connectivitat IoT"], respuesta: 1 },
+{ pregunta: "Quin és l'objectiu principal de la Ciberseguretat?", opciones: ["Crear robots autònoms", "Protegir sistemes, xarxes i dades contra atacs", "Visualitzar dades complexes", "Automatitzar processos industrials"], respuesta: 1 },
+{ pregunta: "Per a què serveixen les Xarxes de Comunicacions Avançades?", opciones: ["Fabricar components electrònics", "Permetre comunicacions ràpides i fiables", "Simular processos industrials", "Monitoritzar l'energia renovable"], respuesta: 1 },
+{ pregunta: "Què són els Sistemes Ciberfísics (CPS)?", opciones: ["Sistemes de visualització de dades", "Integració de sistemes computacionals amb processos físics", "Robots d'assistència mèdica", "Plataformes col·laboratives"], respuesta: 1 },
+{ pregunta: "Quina és l'aplicació principal de la Geolocalització?", opciones: ["Predicció de demanda", "Determinació precisa de la ubicació geogràfica", "Creació de material nanomètric", "Automatització de processos industrials"], respuesta: 1 },
+{ pregunta: "Què ofereixen les Plataformes Col·laboratives?", opciones: ["Automatització de robots industrials", "Entorns digitals per a la col·laboració en temps real", "Simulació de processos físics", "Creació de bessons digitals"], respuesta: 1 },
+{ pregunta: "Quina funció té el Modelatge i Simulació Digital?", opciones: ["Supervisar sistemes a distància", "Simular i analitzar sistemes abans de la seva execució real", "Gestionar dades energètiques", "Controlar drons automàticament"], respuesta: 1 },
+{ pregunta: "Què integren els Sistemes de Gestió Integrada de Dades (ERP, CRM)?", opciones: ["Funcions empresarials per a una gestió eficient", "Dispositius IoT de baixa potència", "Robots de fabricació avançada", "Plataformes de visualització de dades"], respuesta: 0 },
+{ pregunta: "Què significa Hiperconnectivitat?", opciones: ["Connexió intermitent entre sistemes", "Estat de connexió constant entre múltiples dispositius", "Control remot d'energia renovable", "Creació de models predictius"], respuesta: 1 },
+{ pregunta: "Quina aplicació té la Nanotecnologia en medicina?", opciones: ["Prototipatge ràpid", "Drogues nanomètriques", "Automatització industrial", "Gestió energètica intel·ligent"], respuesta: 1 },
+{ pregunta: "Per a què serveixen els Sensors i Actuadors?", opciones: ["Crear interfícies gràfiques", "Detectar canvis en l'entorn i executar accions de resposta", "Simular processos digitals", "Gestionar dades empresarials"], respuesta: 1 },
+{ pregunta: "Què facilita la Interacció Home-Màquina (HMI)?", opciones: ["Connexió 5G", "Interacció entre humans i màquines mitjançant interfícies", "Generació d'energia solar", "Fabricació additiva"], respuesta: 1 },
+{ pregunta: "Quina aplicació tenen els Vehicles Autònoms i Drons?", opciones: ["Assistència mèdica", "Transport i logística sense intervenció humana", "Predicció financera", "Fabricació de materials"], respuesta: 1 },
+{ pregunta: "Què fan les Tecnologies d'Energia Renovable?", opciones: ["Controlen sensors avançats", "Generen i utilitzen energia eficientment a partir de fonts renovables", "Milloren la visualització de dades", "Automatitzen processos robòtics"], respuesta: 1 },
+{ pregunta: "Quina funció té la Microelectrònica i Fotònica?", opciones: ["Crear robots autònoms", "Processar i transmetre informació amb circuits electrònics i llum", "Simular bessons digitals", "Automatitzar processos empresarials"], respuesta: 1 },
+{ pregunta: "Què fa la Bioinformàtica i Biotecnologia?", opciones: ["Generar energia neta", "Aplicar tecnologia a la ciència biològica i mèdica per a producció industrial", "Automatitzar inspecció de qualitat", "Crear interfícies gràfiques"], respuesta: 1 },
+{ pregunta: "Quin és l'objectiu de la Ciència de Materials?", opciones: ["Crear aplicacions sense codi", "Desenvolupar materials amb propietats específiques millorades", "Connectar dispositius IoT", "Analitzar dades predictives"], respuesta: 1 },
+{ pregunta: "Per què serveixen els Sistemes de Monitorització Remota?", opciones: ["Supervisar i controlar processos industrials a distància", "Automatitzar robots mèdics", "Gestionar ERP i CRM", "Simular entorns virtuals"], respuesta: 0 },
+{ pregunta: "Què són les Xarxes Neuronals lligades a la IA Avançada?", opciones: ["Robots amb visió per ordinador", "Models inspirats en el cervell humà per aprenentatge profund", "Dispositius de baixa potència IoT", "Sistemes de monitorització remota"], respuesta: 1 },
+{ pregunta: "Què permet la Computació Quàntica?", opciones: ["Emmagatzemar dades en el núvol", "Processar informació amb principis de mecànica quàntica a gran velocitat", "Analitzar imatges industrials", "Crear bessons digitals"], respuesta: 1 },
+{ pregunta: "Per a què s'utilitza la Fibra Òptica?", opciones: ["Simulació digital", "Transmetre dades a grans distàncies amb alta velocitat", "Automatització de processos", "Reconeixement de veu"], respuesta: 1 },
+{ pregunta: "Quina funció té l'Anàlisi Predictiva?", opciones: ["Crear models 3D", "Predir resultats futurs amb dades i algoritmes", "Gestionar plataformes col·laboratives", "Automatitzar factures"], respuesta: 1 },
+{ pregunta: "Què és l'Edge Computing?", opciones: ["Processament de dades a centres centralitzats", "Processament de dades prop de la font per reduir latència", "Simulació de bessons digitals", "Automatització industrial avançada"], respuesta: 1 },
+{ pregunta: "Què ofereix la Computació en el Núvol Híbrid?", opciones: ["Ús exclusiu de núvol privat", "Combinació de núvol públic i privat per flexibilitat", "Interacció home-màquina", "Predicció financera"], respuesta: 1 },
+{ pregunta: "Quina utilitat tenen els Bessons Digitals?", opciones: ["Controlar energia renovable", "Simular i analitzar sistemes físics digitalment", "Gestionar projectes en línia", "Automatitzar robots"], respuesta: 1 },
+{ pregunta: "Per què és important la Interoperabilitat i Estandarització?", opciones: ["Redueix la latència de xarxes", "Permet que sistemes diferents treballin junts amb normes comunes", "Millora la visualització de dades", "Crea drons autònoms"], respuesta: 1 },
+{ pregunta: "Què inclou la Gestió del Canvi i Adaptació Cultural?", opciones: ["Canviar hardware industrial", "Gestió de transició a noves tecnologies amb capacitació i ajust cultural", "Analitzar dades massives", "Automatitzar inspecció de qualitat"], respuesta: 1 },
+{ pregunta: "Quina funció tenen els Serveis Compartits i RPA?", opciones: ["Automatitzar tasques repetitives amb robots de software", "Simular processos industrials", "Crear interfícies gràfiques", "Analitzar dades biològiques"], respuesta: 0 },
+{ pregunta: "Què permet la Machine Vision?", opciones: ["Veure i processar imatges per decisions automatitzades", "Gestionar energia renovable", "Analitzar dades financeres", "Crear materials nanomètrics"], respuesta: 0 },
+{ pregunta: "Què caracteritza la Connectivitat Massiva IoT?", opciones: ["Consum energètic alt", "Connexió de milions de dispositius amb consum baix", "Ús exclusiu en fabricació", "Control manual de dispositius"], respuesta: 1 },
+{ pregunta: "Quina aplicació té la Gestió Avançada de la Cadena de Subministrament?", opciones: ["Creació de bessons digitals", "Optimitzar logística i inventari en temps real", "Automatitzar processos educatius", "Generar energia neta"], respuesta: 1 },
+{ pregunta: "Què promou l'Economia Circular i Sostenibilitat?", opciones: ["Consum massiu de recursos", "Reutilització i reciclatge per reduir impacte ambiental", "Automatització industrial completa", "Creació de drons per logística"], respuesta: 1 },
+{ pregunta: "Quina és l'objectiu de la Seguretat Integral?", opciones: ["Crear interfícies gràfiques", "Protegir infraestructures, dades i persones contra amenaces", "Analitzar dades massives", "Simular processos industrials"], respuesta: 1 },
+{ pregunta: "Què fan les Tecnologies d'Assistència i Realitat Mixta?", opciones: ["Generen energia solar", "Combinen elements reals i digitals per assistència i experiència", "Automatitzen processos industrials", "Prediuen demanda futura"], respuesta: 1 },
+{ pregunta: "Què permeten les Tecnologies de Sensors Avançats?", opciones: ["Detecció precisa de canvis en l'entorn per monitorització", "Simulació de processos físics", "Creació de bessons digitals", "Automatització de factures"], respuesta: 0 },
+{ pregunta: "Quina característica principal té el 5G?", opciones: ["Velocitats baixes i alta latència", "Velocitats ultra ràpides i baixa latència", "Ús exclusiu en robòtica", "Automatització de processos ERP"], respuesta: 1 },
+{ pregunta: "Què ofereixen els Sistemes de Visualització de Dades?", opciones: ["Representació visual de dades per facilitar l'anàlisi", "Control remot de robots", "Simulació de materials nanomètrics", "Gestió energètica intel·ligent"], respuesta: 0 },
+{ pregunta: "Per a què serveixen les Xarxes de Senyalització i Control?", opciones: ["Transmetre dades d'alta velocitat", "Permetre comunicació i control en temps real de dispositius", "Crear aplicacions LowCode", "Fabricació additiva"], respuesta: 1 },
+{ pregunta: "Quina funció té l'Automatització de Qualitat i Inspecció?", opciones: ["Control manual de productes", "Inspecció i control de qualitat automatitzats", "Creació de bessons digitals", "Predicció de demanda"], respuesta: 1 },
+{ pregunta: "Què ofereixen les Plataformes de Serveis Integrats?", opciones: ["Integració de múltiples serveis en una sola plataforma", "Robots col·laboratius", "Simulació digital", "Xarxes neuronals"], respuesta: 0 },
+{ pregunta: "Què implica la Integració de Sistemes IoT amb AI?", opciones: ["Ús exclusiu de sensors", "Dispositius IoT que poden prendre decisions intel·ligents amb IA", "Automatització manual", "Creació de bessons digitals"], respuesta: 1 },
+{ pregunta: "Per a què serveixen els Sistemes de Gestió Energètica?", opciones: ["Automatitzar inspecció", "Optimitzar ús i distribució d'energia", "Simular processos industrials", "Analitzar dades financeres"], respuesta: 1 },
+{ pregunta: "Què ofereixen les Tecnologies de Suport a la Presa de Decisió?", opciones: ["Visualització de dades per presa de decisions empresarials", "Creació de robots avançats", "Fabricació flexible", "Gestió energètica"], respuesta: 0 },
+{ pregunta: "Quin avantatge proporcionen les Plataformes LowCode/No-Code?", opciones: ["Desenvolupar aplicacions sense necessitat de codificació profunda", "Automatitzar vehicles autònoms", "Predir resultats futurs", "Simular processos industrials"], respuesta: 0 },
+{ pregunta: "Què és la Seguretat en Endpoints?", opciones: ["Protecció de centres de dades", "Protecció de dispositius finals contra amenaces de seguretat", "Automatització de processos ERP", "Creació de bessons digitals"], respuesta: 1 },
+{ pregunta: "Quina utilitat tenen els Drons per Inspecció i Logística?", opciones: ["Transport manual de mercaderies", "Inspecció d'infraestructures i lliurament automàtic de materials", "Automatitzar processos financers", "Predicció de mercat"], respuesta: 1 },
+{ pregunta: "Què fan les Eines de Col·laboració en Línia i Gestió de Projectes?", opciones: ["Automatitzen la producció industrial", "Faciliten la col·laboració remota i gestió de projectes", "Creen sensors avançats", "Prediuen demanda futura"], respuesta: 1 },
+{ pregunta: "Què caracteritza les Tecnologies de Fabricació Flexible?", opciones: ["Producció rígida i estàtica", "Adaptabilitat ràpida a canvis de disseny o demanda", "Predicció de demanda", "Automatització de processos financers"], respuesta: 1 },
+{ pregunta: "Quina diferència hi ha entre HD, THD i Solucions Digitals?", opciones: ["No hi ha diferències", "HD són capacitats, THD són eines, Solucions Digitals són productes", "THD són capacitats, HD són eines, Solucions Digitals són serveis", "HD i THD són iguals, Solucions Digitals són serveis"], respuesta: 1 },
+{ pregunta: "Quin paper tenen els Habilitadors Digitals en la indústria 4.0?", opciones: ["Crear jocs virtuals", "Impulsar la transformació digital i intel·ligent de la indústria", "Automatitzar només processos manuals", "Gestionar només dades energètiques"], respuesta: 1 },
+{ pregunta: "Quin factor és clau per a l'èxit en la transformació digital?", opciones: ["Només la tecnologia", "Canvi cultural i competències digitals dels professionals", "Ús exclusiu de cloud computing", "Robòtica avançada"], respuesta: 1 },
+{ pregunta: "Què permet la diferenciació entre HD, THD i Solucions Digitals?", opciones: ["Confondre els mitjans amb els fins", "Seleccionar i implementar tecnologies adequades segons les necessitats", "Crear només interfícies gràfiques", "Predir demanda sense dades"], respuesta: 1 },
+{ pregunta: "Quina és la finalitat del diagnòstic i observació permanent en transformació digital?", opciones: ["Reduir costos de hardware", "Identificar barreres i assegurar sostenibilitat del procés", "Automatitzar robots col·laboratius", "Predir resultats financers"], respuesta: 1 },
+{ pregunta: "Què implica digitalitzar una empresa?", opciones: ["Només implementar software", "Incorporar eines, tecnologia i ecosistemes digitals per millorar la interacció amb clients", "Només utilitzar cloud computing", "Automatitzar la producció sense dades"], respuesta: 1 },
+{ pregunta: "Què són les Tecnologies Habilitadores Digitals (THD)?", opciones: ["Eines que faciliten la transformació digital de les empreses", "Dispositius de seguretat física", "Models de negoci tradicionals", "Programes d'ofimàtica bàsics"], respuesta: 0 },
+{ pregunta: "Quina característica permet la connexió entre diferents sistemes i plataformes?", opciones: ["Interconnexió i Integració", "Automatització", "Escalabilitat", "Flexibilitat"], respuesta: 0 },
+{ pregunta: "Quina THD facilita la reducció de la intervenció manual i augmenta la precisió?", opciones: ["Automatització", "Interconnexió", "Analítica de dades", "Hiperconnectivitat"], respuesta: 0 },
+{ pregunta: "Quina característica implica recollir i analitzar grans volums de dades?", opciones: ["Analítica i Processament de Dades", "Interconnexió i Integració", "Automatització", "Flexibilitat"], respuesta: 0 },
+{ pregunta: "Quina propietat de les THD permet adaptar-se a les necessitats canviants de l'empresa?", opciones: ["Escalabilitat", "Seguretat", "Personalització", "Nanotecnologia"], respuesta: 0 },
+{ pregunta: "Quina característica permet adaptar-se ràpidament als canvis del mercat?", opciones: ["Flexibilitat i Adaptabilitat", "Automatització", "Edge Computing", "Blockchain"], respuesta: 0 },
+{ pregunta: "Com contribueixen les THD a la transformació dels models de negoci?", opciones: ["Permeten nous models com serveis de subscripció i comerç electrònic", "Redueixen la velocitat de processos", "Incrementen la intervenció manual", "Disminueixen la personalització"], respuesta: 0 },
+{ pregunta: "Quin és l'impacte principal de les THD en l'eficiència operativa?", opciones: ["Optimitzen processos i redueixen costos", "Creen nous productes físics", "Disminueixen la flexibilitat", "Incrementen errors humans"], respuesta: 0 },
+{ pregunta: "Com fomenten les THD la competitivitat empresarial?", opciones: ["Mitjançant la innovació contínua i adaptació al mercat", "Augmentant la burocràcia", "Limitant la comunicació digital", "Reduint la capacitat analítica"], respuesta: 0 },
+{ pregunta: "Quina THD permet oferir experiències personalitzades als clients?", opciones: ["Analítica de dades i interacció digital", "Automatització industrial", "Nanotecnologia", "Realitat Virtual"], respuesta: 0 },
+{ pregunta: "Què és l'Internet de les Coses (IoT)?", opciones: ["Xarxa de dispositius connectats que intercanvien dades en temps real", "Programari d'ofimàtica", "Sistema de seguretat física", "Xarxa social empresarial"], respuesta: 0 },
+{ pregunta: "Quines aplicacions són comunes de l'IoT?", opciones: ["Cases intel·ligents, manteniment predictiu, gestió de ciutats intel·ligents", "Edició de documents, processament de textos", "Disseny gràfic", "Reproducció de vídeo en línia"], respuesta: 0 },
+{ pregunta: "Què és el Big Data?", opciones: ["Processament i anàlisi de grans volums de dades per extreure informació valuosa", "Dispositius físics connectats", "Robot col·laboratiu", "Infraestructura de xarxa"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té el Big Data?", opciones: ["Anàlisi de mercat, personalització de clients, detecció de fraus", "Robots mèdics", "Disseny de videojocs", "Simulacions físiques"], respuesta: 0 },
+{ pregunta: "Què permet la Intel·ligència Artificial (IA)?", opciones: ["Realitzar tasques que normalment requereixen intel·ligència humana", "Emmagatzemar dades al núvol", "Fabricar productes físics", "Dissenyar xarxes elèctriques"], respuesta: 0 },
+{ pregunta: "Quines aplicacions són típiques de la IA?", opciones: ["Assistents virtuals, reconeixement de veu, anàlisi predictiva", "Producció d'energia solar", "Control manual de processos", "Fabricació de peces 3D"], respuesta: 0 },
+{ pregunta: "Què és l'Aprenentatge Automàtic (Machine Learning)?", opciones: ["Subcamp de la IA que permet aprendre de dades sense programació explícita", "Programari antivirus", "Xarxa de telecomunicacions", "Sistemes ERP"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té el Machine Learning?", opciones: ["Reconeixement d'imatges, recomanacions, diagnòstics mèdics", "Control de xarxes elèctriques", "Gestió de projectes manual", "Fabricació de turbines eòliques"], respuesta: 0 },
+{ pregunta: "Què és el Blockchain?", opciones: ["Llibre de registre digital distribuït per a transaccions segures", "Xarxa de sensors", "Robot col·laboratiu", "Plataforma de visualització de dades"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té el Blockchain?", opciones: ["Criptomonedes, contractes intel·ligents, traçabilitat de la cadena de subministrament", "Edificis intel·ligents", "Assistència mèdica remota", "Emmagatzematge de dades al núvol"], respuesta: 0 },
+{ pregunta: "Què és el Cloud Computing?", opciones: ["Provisió de serveis informàtics a través d'Internet", "Xarxa de drons", "Sensors avançats", "Blockchain"], respuesta: 0 },
+{ pregunta: "Quines aplicacions són típiques del Cloud Computing?", opciones: ["Emmagatzematge de dades, computació remota, SaaS", "Manteniment predictiu", "Robòtica avançada", "Anàlisi predictiva"], respuesta: 0 },
+{ pregunta: "Què és la Robòtica Avançada?", opciones: ["Ús de robots amb capacitats avançades per tasques complexes", "Tecnologia de sensors simples", "Plataforma de serveis integrats", "Machine Learning"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Robòtica Avançada?", opciones: ["Automòbils autònoms, robots col·laboratius, assistència mèdica", "Disseny gràfic", "Emmagatzematge de dades al núvol", "Xarxes socials"], respuesta: 0 },
+{ pregunta: "Què són la Realitat Augmentada i Virtual (AR/VR)?", opciones: ["Tecnologies per interactuar amb entorns virtuals i dades digitals", "Sensors de pressió", "Infraestructura de xarxa 5G", "Robòtica bàsica"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen AR i VR?", opciones: ["Jocs interactius, entrenament professional, visualització de dissenys", "Emmagatzematge al núvol", "Blockchain", "Gestió energètica"], respuesta: 0 },
+{ pregunta: "Què és la Impressió 3D?", opciones: ["Procés de crear objectes tridimensionals a partir de models digitals", "Sistema de seguretat integral", "Xarxa de senyalització", "Anàlisi predictiva"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Impressió 3D?", opciones: ["Prototipatge ràpid, peces personalitzades, indústria mèdica", "Robots col·laboratius", "Plataformes col·laboratives", "Computació quàntica"], respuesta: 0 },
+{ pregunta: "Què és la Ciberseguretat?", opciones: ["Protecció de sistemes i dades contra atacs cibernètics", "Simulació digital de processos", "Sensors i actuadors", "Plataformes LowCode"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Ciberseguretat?", opciones: ["Protecció de dades personals i empresarials, infraestructures crítiques", "Creació de models digitals", "Manteniment predictiu", "Recomanacions de productes"], respuesta: 0 },
+{ pregunta: "Què són les Xarxes de Comunicacions Avançades?", opciones: ["Tecnologies que permeten comunicacions ràpides i fiables", "Robòtica avançada", "Disseny de productes", "Machine Vision"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen les Xarxes Avançades?", opciones: ["Banda ampla, 5G, IoT", "Fabricació additiva", "Reconeixement de veu", "Simulació de pilots"], respuesta: 0 },
+{ pregunta: "Què són els Sistemes Ciberfísics (CPS)?", opciones: ["Integració de sistemes computacionals amb processos físics", "Aplicacions mòbils", "Machine Learning bàsic", "Blockchain"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen els CPS?", opciones: ["Control industrial, vehicles autònoms, dispositius mèdics implantables", "Xarxes socials", "Disseny gràfic", "Robòtica educativa"], respuesta: 0 },
+{ pregunta: "Què és la Geolocalització?", opciones: ["Determinació de la ubicació geogràfica d'un objecte o persona", "Sistema de visualització de dades", "Edge computing", "Digital twins"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Geolocalització?", opciones: ["Navegació GPS, seguiment de vehicles, aplicacions de localització", "Blockchain", "Robots mèdics", "Cloud Computing"], respuesta: 0 },
+{ pregunta: "Què són les Plataformes Col·laboratives?", opciones: ["Entorns digitals que faciliten la col·laboració entre usuaris", "Sensors avançats", "Robòtica bàsica", "Sistemes energètics"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen les Plataformes Col·laboratives?", opciones: ["Treball remot, gestió de projectes, xarxes socials empresarials", "Blockchain", "Computació quàntica", "Anàlisi predictiva"], respuesta: 0 },
+{ pregunta: "Què és el Modelatge i Simulació Digital?", opciones: ["Creació de models digitals per simular i analitzar sistemes complexos", "Plataformes LowCode", "Sistemes energètics", "Xarxes 5G"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té el Modelatge i Simulació Digital?", opciones: ["Disseny de productes, simulació industrial, entrenament de pilots", "Emmagatzematge de dades", "Blockchain", "Robòtica educativa"], respuesta: 0 },
+{ pregunta: "Què són els Sistemes de Gestió Integrada de Dades (ERP, CRM)?", opciones: ["Plataformes que integren funcions empresarials per a una gestió eficient", "Sensors i actuadors", "Robòtica avançada", "Machine vision"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen els ERP i CRM?", opciones: ["Gestió de recursos empresarials i relacions amb clients", "Xarxes socials", "Fabricació additiva", "Simulació digital"], respuesta: 0 },
+{ pregunta: "Què és la Hiperconnectivitat?", opciones: ["Estat en què múltiples dispositius estan constantment connectats", "Robòtica col·laborativa", "Sistemes energètics", "Nanotecnologia"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Hiperconnectivitat?", opciones: ["Ciutats intel·ligents, xarxes domèstiques, IoT", "Edificis intel·ligents", "Blockchain", "Visualització de dades"], respuesta: 0 },
+{ pregunta: "Què és la Nanotecnologia?", opciones: ["Manipulació de matèria a escala nanomètrica per crear nous materials i dispositius", "Sistemes ERP", "Robòtica avançada", "Machine Learning"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Nanotecnologia?", opciones: ["Medicina, electrònica, materials d'alt rendiment", "Gestió de projectes", "IoT bàsic", "Simulació digital"], respuesta: 0 },
+{ pregunta: "Què són els Sensors i Actuadors?", opciones: ["Dispositius que detecten canvis i realitzen accions com a resposta", "Plataformes col·laboratives", "Cloud Computing", "Blockchain"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen els Sensors i Actuadors?", opciones: ["Automòbils autònoms, sistemes de seguretat, domòtica", "Visualització de dades", "Simulació digital", "Educació virtual"], respuesta: 0 },
+{ pregunta: "Què és la Interacció Home-Màquina (HMI)?", opciones: ["Tecnologies que faciliten la interacció entre humans i màquines", "Robòtica bàsica", "Sistemes energètics", "Blockchain"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la HMI?", opciones: ["Pantalles tàctils, reconeixement de veu, interfícies cervell-ordinador", "Edge computing", "Cloud Computing", "Machine Learning"], respuesta: 0 },
+{ pregunta: "Què són els Vehicles Autònoms i Drons?", opciones: ["Dispositius capaços d'operar sense intervenció humana", "Sensors de pressió", "Plataformes LowCode", "Visualització de dades"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen els Vehicles Autònoms i Drons?", opciones: ["Logística, agricultura de precisió, transport de persones", "Blockchain", "Robòtica bàsica", "Simulació digital"], respuesta: 0 },
+{ pregunta: "Què són les Tecnologies d'Energia Renovable?", opciones: ["Tecnologies que permeten generar i utilitzar energia eficientment", "Machine Learning", "Sensors avançats", "Visualització de dades"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen les Tecnologies d'Energia Renovable?", opciones: ["Panells solars, turbines eòliques, gestió energètica", "Simulació digital", "Blockchain", "Plataformes LowCode"], respuesta: 0 },
+{ pregunta: "Què és la Microelectrònica i Fotònica?", opciones: ["Tecnologies basades en circuits electrònics i llum per processar informació", "Robòtica avançada", "Cloud Computing", "Sensors i actuadors"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Microelectrònica i Fotònica?", opciones: ["Processadors, comunicacions òptiques, sensors", "Educació interactiva", "Simulació de pilots", "Robots col·laboratius"], respuesta: 0 },
+{ pregunta: "Què és la Bioinformàtica i Biotecnologia?", opciones: ["Aplicació de tecnologia a les ciències biològiques i mèdiques", "Robòtica educativa", "Edge computing", "Machine vision"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Bioinformàtica?", opciones: ["Seqüenciació de genomes, nous medicaments, bioreactors", "IoT bàsic", "Sistemes energètics", "Plataformes col·laboratives"], respuesta: 0 },
+{ pregunta: "Què és la Ciència de Materials?", opciones: ["Estudi i desenvolupament de materials amb propietats millorades", "Blockchain", "Robòtica avançada", "Machine Learning"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Ciència de Materials?", opciones: ["Materials lleugers per aviació, aliatges resistents, biodegradables", "Simulació digital", "Plataformes LowCode", "HMI"], respuesta: 0 },
+{ pregunta: "Què són els Sistemes de Monitorització Remota?", opciones: ["Tecnologies per supervisar i controlar sistemes a distància", "Machine vision", "Cloud Computing", "Digital twins"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen els Sistemes de Monitorització Remota?", opciones: ["Vigilància de la salut, monitorització industrial, gestió de flotes", "Robòtica col·laborativa", "Blockchain", "Educació interactiva"], respuesta: 0 },
+{ pregunta: "Què són les Xarxes Neuronals Avançades?", opciones: ["Models computacionals inspirats en el cervell per deep learning", "Sensors bàsics", "Plataformes LowCode", "Sistemes energètics"], respuesta: 0 },
+{ pregunta: "Quines aplicacions tenen les Xarxes Neuronals Avançades?", opciones: ["Reconeixement de veu i imatges, traducció automàtica, jocs d'estratègia", "Robòtica bàsica", "Simulació digital", "Visualització de dades"], respuesta: 0 },
+{ pregunta: "Què és la Computació Quàntica?", opciones: ["Processament de dades amb principis de mecànica quàntica", "Blockchain", "Sensors i actuadors", "HMI"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Computació Quàntica?", opciones: ["Criptografia avançada, simulacions de molècules, optimització complexa", "Robòtica educativa", "Edge computing", "Plataformes LowCode"], respuesta: 0 },
+{ pregunta: "Què és la Fibra Òptica?", opciones: ["Tecnologia que transmet dades amb llum a alta velocitat", "Sensors bàsics", "Machine vision", "Simulació digital"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Fibra Òptica?", opciones: ["Internet d'alta velocitat, telecomunicacions, xarxes de dades", "Robòtica col·laborativa", "Cloud computing", "Blockchain"], respuesta: 0 },
+{ pregunta: "Què són les Tecnologies Habilitadores Digitals (THD)?", opciones: ["Eines per a la transformació digital", "Sistemes operatius per a ordinadors", "Aplicacions mòbils de comunicació", "Robots de fabricació industrial"], respuesta: 0 },
+{ pregunta: "Quina característica permet als THD connectar diferents sistemes i dispositius?", opciones: ["Automatització", "Interconnexió i integració", "Flexibilitat", "Escalabilitat"], respuesta: 1 },
+{ pregunta: "Quina funció dels THD ajuda a reduir la intervenció manual?", opciones: ["Automatització", "Analítica de dades", "Transformació de models de negoci", "Interconnexió"], respuesta: 0 },
+{ pregunta: "Què permet l’analítica i processament de dades en els THD?", opciones: ["Millorar la precisió manual", "Recollir i analitzar grans volums de dades", "Augmentar la latència en processos", "Crear hardware físic"], respuesta: 1 },
+{ pregunta: "Quina característica dels THD permet créixer segons les necessitats empresarials?", opciones: ["Escalabilitat", "Flexibilitat", "Interconnexió", "Seguretat"], respuesta: 0 },
+{ pregunta: "Què proporciona la flexibilitat i adaptabilitat dels THD?", opciones: ["Adaptació ràpida als canvis del mercat", "Millora de la seguretat de dades", "Reducció del consum energètic", "Increment de la latència de xarxa"], respuesta: 0 },
+{ pregunta: "Com contribueixen els THD a la transformació dels models de negoci?", opciones: ["Permetent serveis de subscripció i comerç electrònic personalitzat", "Reduint la interconnexió entre sistemes", "Automatitzant només processos administratius", "Incrementant la complexitat del software"], respuesta: 0 },
+{ pregunta: "Com ajuden els THD a millorar l’eficiència operativa?", opciones: ["Optimitzant processos i reduint costos", "Creant noves xarxes socials", "Reemplaçant completament els treballadors humans", "Incrementant el temps de resposta"], respuesta: 0 },
+{ pregunta: "Com fomenten els THD la innovació i competitivitat?", opciones: ["Adaptant-se als canvis de mercat i tecnologies", "Creant només aplicacions mòbils", "Reduint la personalització de serveis", "Augmentant el consum de recursos"], respuesta: 0 },
+{ pregunta: "Quina característica dels THD millora l’experiència del client?", opciones: ["Personalització basada en anàlisi de dades", "Augment de la latència de xarxa", "Reducció de la interconnexió", "Automatització de processos interns només"], respuesta: 0 },
+{ pregunta: "Què defineix Internet de les Coses (IoT)?", opciones: ["Xarxa de dispositius físics connectats a Internet que recopilen dades", "Sistema d’emmagatzematge de dades al núvol", "Model d’IA per reconeixement de veu", "Plataforma de col·laboració empresarial"], respuesta: 0 },
+{ pregunta: "Quina aplicació és típica de l’IoT?", opciones: ["Cases intel·ligents", "Blockchain", "Computació quàntica", "Impressió 3D"], respuesta: 0 },
+{ pregunta: "Què és Big Data?", opciones: ["Processament i anàlisi de grans volums de dades", "Xarxa de sensors connectats", "Tecnologia de vehicles autònoms", "Sistema de realitat virtual"], respuesta: 0 },
+{ pregunta: "Quina aplicació té Big Data en les empreses?", opciones: ["Personalització de l’experiència del client", "Control de robots industrials", "Monitorització de drones", "Emmagatzematge físic de documents"], respuesta: 0 },
+{ pregunta: "Com es defineix la Intel·ligència Artificial (IA)?", opciones: ["Tecnologia que permet a les màquines realitzar tasques que requereixen intel·ligència humana", "Sistema de xarxes de comunicació", "Hardware per vehicles autònoms", "Eina de simulació digital"], respuesta: 0 },
+{ pregunta: "Quina és una aplicació típica de la IA?", opciones: ["Assistents virtuals", "Creació de materials nanomètrics", "Plataformes ERP", "Xarxes de fibra òptica"], respuesta: 0 },
+{ pregunta: "Què és l’Aprenentatge Automàtic (Machine Learning)?", opciones: ["Subcamp de la IA que permet aprendre de dades sense programació explícita", "Xarxa de sensors IoT", "Sistemes de monitorització remota", "Tecnologia per imprimir objectes 3D"], respuesta: 0 },
+{ pregunta: "Quina aplicació és típica del Machine Learning?", opciones: ["Recomanacions de productes", "Disseny de panells solars", "Control de trànsit urbà", "Blockchain"], respuesta: 0 },
+{ pregunta: "Què és Blockchain?", opciones: ["Llibre de registre digital distribuït per a transaccions segures", "Tecnologia de visualització de dades", "Plataforma de col·laboració en línia", "Sistema de gestió energètica"], respuesta: 0 },
+{ pregunta: "Quina aplicació té Blockchain?", opciones: ["Criptomonedes", "Assistència mèdica", "Xarxes domèstiques", "Manufactura flexible"], respuesta: 0 },
+{ pregunta: "Què és Cloud Computing?", opciones: ["Provisió de serveis informàtics a través d’Internet", "Sistema de control de drons", "Tecnologia per a vehicles autònoms", "Dispositius de sensors avançats"], respuesta: 0 },
+{ pregunta: "Quina aplicació té Cloud Computing?", opciones: ["Emmagatzematge de dades i SaaS", "Anàlisi de mercat", "Reconeixement de veu", "Robòtica mèdica"], respuesta: 0 },
+{ pregunta: "Què és la Robòtica Avançada?", opciones: ["Ús de robots amb capacitats avançades per tasques complexes", "Sistema d’anàlisi de dades", "Xarxa de sensors IoT", "Tecnologia de digital twins"], respuesta: 0 },
+{ pregunta: "Quina aplicació és típica de la robòtica avançada?", opciones: ["Robots col·laboratius en fàbriques", "Blockchain", "Realitat virtual", "Computació quàntica"], respuesta: 0 },
+{ pregunta: "Què són AR i VR?", opciones: ["Tecnologies per visualitzar i interactuar amb entorns virtuals o augmentats", "Xarxes de comunicació 5G", "Sistemes de gestió energètica", "Plataformes ERP"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la realitat augmentada i virtual?", opciones: ["Jocs interactius i entrenament professional", "Gestió de dades de clients", "Vehicles autònoms", "Prototipatge 3D"], respuesta: 0 },
+{ pregunta: "Què és la impressió 3D o fabricació additiva?", opciones: ["Procés de creació d’objectes capa a capa a partir de models digitals", "Sistema de monitorització remota", "Tecnologia de vehicles autònoms", "Xarxes neuronals artificials"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la impressió 3D?", opciones: ["Prototipatge ràpid i personalització de peces", "Predicció de demanda", "Assistents virtuals", "Control de xarxes"], respuesta: 0 },
+{ pregunta: "Què és la ciberseguretat?", opciones: ["Protecció de sistemes i dades contra atacs cibernètics", "Tecnologia de sensors avançats", "Sistema de fabricació flexible", "Xarxes de comunicació 5G"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la ciberseguretat?", opciones: ["Protecció d’infraestructures crítiques", "Control de robots industrials", "Simulació digital", "Plataformes ERP"], respuesta: 0 },
+{ pregunta: "Què són les Xarxes de Comunicacions Avançades?", opciones: ["Tecnologies de xarxa per a comunicacions ràpides i fiables", "Sistemes de monitorització remota", "Robòtica avançada", "Vehicles autònoms"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen les xarxes avançades?", opciones: ["5G i IoT", "Blockchain", "Computació quàntica", "Robòtica mèdica"], respuesta: 0 },
+{ pregunta: "Què són els Sistemes Ciberfísics (CPS)?", opciones: ["Integració de sistemes computacionals amb processos físics", "Xarxes domèstiques IoT", "Eines de visualització de dades", "Plataformes col·laboratives"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen els CPS?", opciones: ["Control de processos industrials i vehicles autònoms", "Blockchain", "Prototipatge 3D", "Xarxes de fibra òptica"], respuesta: 0 },
+{ pregunta: "Què és la geolocalització?", opciones: ["Determinació precisa de la ubicació geogràfica d’un objecte o persona", "Anàlisi predictiva de dades", "Simulació de processos industrials", "Control remot de robots"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la geolocalització?", opciones: ["Navegació GPS i seguiment de vehicles", "Xarxes neuronals", "Vehicles autònoms", "Disseny de productes"], respuesta: 0 },
+{ pregunta: "Què són les Plataformes Col·laboratives?", opciones: ["Entorns digitals que faciliten la col·laboració entre usuaris", "Sistemes de gestió energètica", "Dispositius IoT de baixa potència", "Sistemes de visualització de dades"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen les plataformes col·laboratives?", opciones: ["Treball en equip remot i gestió de projectes", "Control de qualitat automàtic", "Disseny de materials nanomètrics", "Predicció de demanda"], respuesta: 0 },
+{ pregunta: "Què és el Modelatge i Simulació Digital?", opciones: ["Creació de models digitals per simular sistemes complexos", "Sistema de monitorització remota", "Plataforma ERP", "Xarxa de sensors IoT"], respuesta: 0 },
+{ pregunta: "Quina aplicació té el modelatge i simulació digital?", opciones: ["Simulació de processos industrials i entrenament de pilots", "Assistència mèdica", "Blockchain", "Xarxes neuronals"], respuesta: 0 },
+{ pregunta: "Què són els Sistemes de Gestió Integrada de Dades (ERP, CRM)?", opciones: ["Plataformes que integren funcions empresarials per a una gestió eficient", "Sistemes de comunicació avançada", "Plataformes col·laboratives", "Sistemes ciberfísics"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen els ERP i CRM?", opciones: ["Gestió de recursos empresarials i relacions amb clients", "Vehicles autònoms", "Computació quàntica", "Fabricació additiva"], respuesta: 0 },
+{ pregunta: "Què és la hiperconnectivitat?", opciones: ["Connexió constant i a alta velocitat entre múltiples dispositius", "Control remot de sensors industrials", "Plataformes col·laboratives", "Robòtica avançada"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la hiperconnectivitat?", opciones: ["Ciutats intel·ligents i xarxes domèstiques", "Simulació digital", "Visualització de dades", "Producció flexible"], respuesta: 0 },
+{ pregunta: "Què és la nanotecnologia?", opciones: ["Manipulació de la matèria a escala nanomètrica per crear nous materials i dispositius", "Sistemes de monitorització remota", "Plataformes ERP", "Xarxes de senyalització"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la nanotecnologia?", opciones: ["Medicina i electrònica d’alt rendiment", "Gestió de projectes", "Vehicles autònoms", "Disseny de productes 3D"], respuesta: 0 },
+{ pregunta: "Què són els sensors i actuadors?", opciones: ["Dispositius que detecten canvis i actuen en conseqüència", "Sistemes de visualització de dades", "Plataformes col·laboratives", "Vehicles autònoms"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen els sensors i actuadors?", opciones: ["Automòbils autònoms i domòtica", "Simulació digital", "Blockchain", "Computació quàntica"], respuesta: 0 },
+{ pregunta: "Què és la interacció home-màquina (HMI)?", opciones: ["Tecnologies que faciliten la interacció entre humans i màquines", "Sistemes de gestió energètica", "Xarxes neuronals", "Blockchain"], respuesta: 0 },
+  ];
+
+  // 📚 Variables globals
+  let preguntas = [];
+  let totalPreguntas = 30;
+  let preguntaActual = 0;
+  let puntaje = 0;
+  let respuestasUsuario = [];
+  let modoRevision = false;
+  let opcionSeleccionada = null;
+
+  // 📦 Elements del DOM
+  const configContainer = document.getElementById('config-container');
+  const raButtons = document.getElementById('ra-buttons');
+  const numPreguntasButtons = document.getElementById('numPreguntas-buttons');
+  const btnIniciarQuiz = document.getElementById('btnIniciarQuiz');
+
+  const quizContainer = document.getElementById('quiz-container');
+  const preguntaEl = document.getElementById('pregunta');
+  const opcionesEl = document.getElementById('opciones');
+  const resultatEl = document.getElementById('resultat');
+  const btnConfirmar = document.getElementById('btnConfirmar');
+  const btnSeguent = document.getElementById('btnSeguent');
+  const btnAnterior = document.getElementById('btnAnterior');
+  const btnRevision = document.getElementById('btnRevision');
+  const btnReiniciar = document.getElementById('btnReiniciar');
+  const puntuatgeEl = document.getElementById('puntuatge');
+
+  // Funcions per manejar selecció botons configuració
+  function seleccionarBotonEnGrupo(container, boton) {
+    const botones = container.querySelectorAll('button');
+    botones.forEach(b => b.classList.remove('seleccionat'));
+    boton.classList.add('seleccionat');
+  }
+
+  // Esdeveniment per selecció RA
+  raButtons.addEventListener('click', e => {
+    if (e.target.tagName === 'BUTTON') {
+      seleccionarBotonEnGrupo(raButtons, e.target);
+    }
+  });
+
+  // Esdeveniment per selecció nombre de preguntes
+  numPreguntasButtons.addEventListener('click', e => {
+    if (e.target.tagName === 'BUTTON') {
+      seleccionarBotonEnGrupo(numPreguntasButtons, e.target);
+    }
+  });
+
+  // 🧩 Funció per barrejar aleatòriament un array
+  function mezclarArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  // 🎬 Inici del quiz després de configurar
+  btnIniciarQuiz.addEventListener('click', () => {
+    const raElegit = raButtons.querySelector('button.seleccionat').getAttribute('data-value');
+    const cantidadStr = numPreguntasButtons.querySelector('button.seleccionat').getAttribute('data-value');
+
+    // Seleccionar banc de preguntes segons RA
+    if (raElegit === "ra1") {
+      preguntas = [...preguntasRA1];
+    } else if (raElegit === "ra2") {
+      preguntas = [...preguntasRA2];
+    } else {
+      preguntas = [...preguntasRA1, ...preguntasRA2];
+    }
+
+    // Barrejar
+    mezclarArray(preguntas);
+
+    // Quantitat preguntes segons selecció
+    if (cantidadStr === 'todas') {
+      totalPreguntas = preguntas.length;
+    } else {
+      const cantidad = parseInt(cantidadStr);
+      totalPreguntas = (!isNaN(cantidad) && cantidad > 0) ? Math.min(cantidad, preguntas.length) : Math.min(30, preguntas.length);
+    }
+
+    preguntas = preguntas.slice(0, totalPreguntas);
+
+    // Canviar a vista quiz
+    configContainer.style.display = "none";
+    quizContainer.style.display = "block";
+
+    iniciarQuiz();
+  });
+
+  // 🚀 Lògica del quiz
+  function iniciarQuiz() {
+    preguntaActual = 0;
+    puntaje = 0;
+    respuestasUsuario = Array(totalPreguntas).fill(null);
+    modoRevision = false;
+    btnRevision.style.display = "none";
+    btnReiniciar.style.display = "none";
+    btnAnterior.style.display = "block";
+    btnSeguent.style.display = "block";
+    mostrarPregunta();
+  }
+
+  function mostrarPregunta() {
+    const pregunta = preguntas[preguntaActual];
+    const respuesta = respuestasUsuario[preguntaActual];
+
+    preguntaEl.textContent = `Pregunta ${preguntaActual + 1} de ${totalPreguntas}: ${pregunta.pregunta}`;
+    opcionesEl.innerHTML = "";
+    resultatEl.textContent = "";
+    btnConfirmar.disabled = true;
+
+    pregunta.opciones.forEach((opcion, index) => {
+      const btn = document.createElement('button');
+      btn.textContent = opcion;
+      btn.addEventListener('click', () => seleccionarOpcion(index, btn));
+      opcionesEl.appendChild(btn);
+    });
+
+    if (respuesta) {
+      const botones = opcionesEl.querySelectorAll('button');
+      botones.forEach(b => b.disabled = true);
+      botones[respuesta.correctaIndex].classList.add('correcta');
+      if (!respuesta.correcto) {
+        botones[respuesta.seleccionadaIndex].classList.add('incorrecta');
+        resultatEl.textContent = `Incorrecte ❌. La resposta correcta és: ${pregunta.opciones[pregunta.respuesta]}`;
+      } else {
+        resultatEl.textContent = "Correcte! 🤙";
+      }
+      btnConfirmar.disabled = true;
+    }
+
+    btnAnterior.disabled = preguntaActual === 0;
+    btnSeguent.disabled = !respuesta;
+
+    if (modoRevision) {
+      btnConfirmar.style.display = "none";
+      btnSeguent.textContent = preguntaActual === totalPreguntas - 1 ? "Finalitzar revisió" : "Següent";
+      btnSeguent.disabled = false;
+    } else {
+      btnConfirmar.style.display = "block";
+      btnSeguent.textContent = preguntaActual === totalPreguntas - 1 ? "Finalitzar" : "Següent";
+    }
+  }
+
+  function seleccionarOpcion(index, btn) {
+    if (respuestasUsuario[preguntaActual]) return;
+    const botones = opcionesEl.querySelectorAll('button');
+    botones.forEach(b => b.classList.remove('seleccionada'));
+    btn.classList.add('seleccionada');
+    opcionSeleccionada = index;
+    btnConfirmar.disabled = false;
+  }
+
+  btnConfirmar.addEventListener('click', () => {
+    if (opcionSeleccionada === null) return;
+    const pregunta = preguntas[preguntaActual];
+    const botones = opcionesEl.querySelectorAll('button');
+    botones.forEach(b => b.disabled = true);
+
+    const correcto = opcionSeleccionada === pregunta.respuesta;
+
+    if (correcto) {
+      botones[opcionSeleccionada].classList.remove('seleccionada');
+      botones[opcionSeleccionada].classList.add('correcta');
+      resultatEl.textContent = "Correcte! 🤙";
+      puntaje++;
+    } else {
+      botones[opcionSeleccionada].classList.remove('seleccionada');
+      botones[opcionSeleccionada].classList.add('incorrecta');
+      botones[pregunta.respuesta].classList.add('correcta');
+      resultatEl.textContent = `Incorrecte ❌. La resposta correcta és: ${pregunta.opciones[pregunta.respuesta]}`;
+    }
+
+    respuestasUsuario[preguntaActual] = {
+      seleccionadaIndex: opcionSeleccionada,
+      correctaIndex: pregunta.respuesta,
+      correcto
+    };
+
+    btnConfirmar.disabled = true;
+    btnSeguent.disabled = false;
+  });
+
+  btnSeguent.addEventListener('click', () => {
+    if (modoRevision) {
+      if (preguntaActual < totalPreguntas - 1) {
+        preguntaActual++;
+        mostrarPregunta();
+      } else {
+        mostrarResultados();
+      }
+      return;
+    }
+
+    if (preguntaActual < totalPreguntas - 1) {
+      preguntaActual++;
+      opcionSeleccionada = null;
+      mostrarPregunta();
+    } else {
+      mostrarResultados();
+    }
+  });
+
+  btnAnterior.addEventListener('click', () => {
+    if (preguntaActual > 0) {
+      preguntaActual--;
+      opcionSeleccionada = null;
+      mostrarPregunta();
+    }
+  });
+
+  function mostrarResultados() {
+    modoRevision = false;
+    preguntaEl.textContent = "Quiz acabat!";
+    opcionesEl.innerHTML = "";
+    resultatEl.innerHTML = "";
+
+    let resultadoHTML = "<h2>Resultats:</h2><ul>";
+    respuestasUsuario.forEach((r, i) => {
+      const p = preguntas[i];
+      resultadoHTML += `<li><b>Pregunta ${i + 1}:</b> ${p.pregunta}<br>
+        La teva resposta: ${p.opciones[r.seleccionadaIndex]} ${r.correcto ? "✅" : "❌"}<br>
+        Resposta correcta: ${p.opciones[r.correctaIndex]}</li><br>`;
+    });
+    resultadoHTML += "</ul>";
+
+    resultatEl.innerHTML = resultadoHTML;
+    puntuatgeEl.textContent = `Puntuació final: ${puntaje} de ${totalPreguntas}`;
+
+    btnConfirmar.style.display = "none";
+    btnAnterior.style.display = "none";
+    btnSeguent.style.display = "none";
+    btnRevision.style.display = "block";
+    btnReiniciar.style.display = "block";
+  }
+
+  btnRevision.addEventListener('click', () => {
+    modoRevision = true;
+    preguntaActual = 0;
+    btnRevision.style.display = "none";
+    btnReiniciar.style.display = "none";
+    btnAnterior.style.display = "block";
+    btnSeguent.style.display = "block";
+    mostrarPregunta();
+  });
+
+  btnReiniciar.addEventListener('click', () => location.reload());
+
+</script>
+
+</body>
+</html>
