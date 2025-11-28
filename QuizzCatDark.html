@@ -1,0 +1,799 @@
+<!--
+  PARTS CONFIGURABLES DEL CODI:
+
+  1. Bancs de preguntes:
+     - Arrays 'preguntasRA1' i 'preguntasRA2' a l’inici de l’script.
+     - Cada pregunta té:
+       - 'pregunta': text de la pregunta
+       - 'opciones': array amb opcions de resposta
+       - 'respuesta': índex (0-based) de l'opció correcta
+     - Pots afegir, modificar o eliminar preguntes i opcions segons necessitis.
+
+  2. Configuració de selecció de RA:
+     - Botons dins el div amb id="ra-buttons".
+     - Opcions disponibles: 'ambos', 'ra1', 'ra2'.
+     - Per afegir més categories o canviar noms, modifica aquest grup i lògica al script.
+
+  3. Configuració nombre de preguntes:
+     - Botons dins el div amb id="numPreguntas-buttons".
+     - Opcions: 10, 20, 30, 40, 50 i 'todas'.
+     - Pots modificar, afegir o eliminar valors.
+
+  4. Límits per defecte:
+     - Valor per defecte de 'totalPreguntas' (30).
+     - Comprovació que no es demanin més preguntes de les disponibles.
+     - Si vols canviar valors per defecte, modifica la variable 'totalPreguntas' o el codi al botó d'iniciar.
+
+  5. Estils CSS:
+     - Pots modificar colors, fonts i disposició dins la secció `<style>`.
+     - Classes importants per respostes: 
+       - .seleccionada (opció seleccionada)
+       - .correcta (resposta correcta)
+       - .incorrecta (resposta errònia)
+     - Botons i contenidors tenen classes i id per fer més fàcil la personalització.
+
+  6. Textos de botons i missatges:
+     - Textos com "Confirmar", "Següent", "Anterior", "Incorrecte", etc. estan dins l'HTML o l’script.
+     - Pots traduir o canviar aquests textos a la part HTML i dins les funcions JS.
+
+  7. Funcionalitats:
+     - Revisió de respostes després de finalitzar el quiz.
+     - Reinici del quiz.
+     - Barreja aleatòria de preguntes (funció mezclarArray).
+     - Limitació de navegació (botons anterior/següent).
+
+  8. Estructura general:
+     - Divs #config-container i #quiz-container separen la configuració de la prova i la pròpia prova.
+     - Si vols afegir més fases o canviar la navegació, modifica aquestes parts.
+
+  -----------------------------------------------
+  Per afegir preguntes noves, segueix l'estructura:
+
+    {
+      pregunta: "Text de la pregunta",
+      opciones: ["Opció 1", "Opció 2", "Opció 3", "Opció 4"],
+      respuesta: índex_de_la_opció_correcta (0-based)
+    }
+
+  -----------------------------------------------
+-->
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quiz RA1 / RA2 - Personalitzable</title>
+  
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 10px;
+      background-color: #333;
+      color: #eee;
+    }
+    h1 {
+      text-align: center;
+    }
+    .pregunta {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin: 8px 0;
+      padding: 12px;
+      font-size: 1em;
+      cursor: pointer;
+      border: 1px solid #eee;
+      background-color: #333;
+color: #eee;
+      border-radius: 5px;
+      transition: background-color 0.3s, transform 0.1s;
+    }
+    button:hover:not(:disabled) {
+      background-color: #555;
+    }
+    button:disabled {
+      cursor: default;
+      opacity: 0.8;
+    }
+
+    .seleccionada { background-color: #41475e; border-color: #007bff; }
+    .correcta { background-color: #28a745 !important; color: white; border-color: #1e7e34; }
+    .incorrecta { background-color: #dc3545 !important; color: white; border-color: #b21f2d; }
+
+    #resultat {
+      margin-top: 25px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    #puntuatge {
+      margin-top: 20px;
+      font-size: 1.3em;
+      text-align: center;
+    }
+
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .nav-buttons button { width: 48%; }
+
+    #btnSeguent, #btnConfirmar, #btnAnterior, #btnRevision, #btnReiniciar, #btnIniciarQuiz {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #btnReiniciar { background-color: #28a745; }
+
+    #config-container {
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    /* Estils per grups de botons de selecció */
+    .grupo-botones {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0 30px 0;
+    }
+
+    .grupo-botones button {
+      width: 100px;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #eee;
+      background-color: #333;
+      color: #eee;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .grupo-botones button.seleccionat {
+      background-color: #007BFF;
+      color: white;
+      border-color: #0056b3;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>😎 Quizz de pràctica Digi 😎</h1>
+
+  <!-- Pantalla de configuració -->
+  <div id="config-container">
+    <h2>Configura el teu examen</h2>
+    <p><b>Selecciona el RA:</b></p>
+    <div id="ra-buttons" class="grupo-botones">
+      <button data-value="ambos" class="seleccionat">Ambdós</button>
+      <button data-value="ra1">RA5</button>
+      <button data-value="ra2">RA5</button>
+    </div>
+
+    <p><b>Quantes preguntes vols respondre?</b></p>
+    <div id="numPreguntas-buttons" class="grupo-botones">
+      <button data-value="10">10</button>
+      <button data-value="20">20</button>
+      <button data-value="30" class="seleccionat">30</button>
+      <button data-value="40">40</button>
+      <button data-value="50">50</button>
+      <button data-value="todas">Totes</button>
+    </div>
+
+    <button id="btnIniciarQuiz">Iniciar Quiz</button>
+  </div>
+
+  <!-- Contenidor principal del quiz -->
+  <div id="quiz-container" style="display:none;">
+    <div id="pregunta" class="pregunta"></div>
+    <div id="opciones"></div>
+    <div id="resultat"></div>
+    <button id="btnConfirmar" disabled>Confirmar</button>
+
+    <div class="nav-buttons">
+      <button id="btnAnterior" disabled>Anterior</button>
+      <button id="btnSeguent" disabled>Següent</button>
+    </div>
+
+    <button id="btnRevision" style="display:none;">Revisar respostes</button>
+    <button id="btnReiniciar" style="display:none;">Reiniciar Quiz</button>
+  </div>
+
+  <div id="puntuatge"></div>
+
+<script>
+  // 📘 RA1: Banc de preguntes
+  const preguntasRA1 = [
+{ pregunta: "Quina és la funció principal de l'Internet de les Coses (IoT)?", opciones: ["Emmagatzemar dades massives", "Permetre la connexió i intercanvi de dades entre dispositius", "Crear models predictius complexos", "Generar energia renovable"], respuesta: 1 },
+{ pregunta: "Què permet el Big Data en el context empresarial?", opciones: ["Automatitzar robots col·laboratius", "Analitzar grans volums de dades per millorar la presa de decisions", "Controlar dispositius IoT en temps real", "Crear jocs virtuals immersius"], respuesta: 1 },
+{ pregunta: "Quina tasca pot realitzar la Intel·ligència Artificial (IA)?", opciones: ["Emmagatzemar dades en el núvol", "Aprendre de les dades i realitzar tasques complexes", "Fabricar objectes tridimensionals", "Controlar turbines eòliques"], respuesta: 1 },
+{ pregunta: "Què defineix l'Aprenentatge Automàtic (Machine Learning)?", opciones: ["Software per gestionar ERP", "Subcamp de la IA que aprèn de dades sense programació explícita", "Xarxes que transmeten dades a alta velocitat", "Robots per assistència mèdica"], respuesta: 1 },
+{ pregunta: "Quina característica principal té Blockchain?", opciones: ["Centralitza les dades empresarials", "Permet registrar transaccions de manera segura i transparent", "Automatitza la producció industrial", "Millora la visualització de dades"], respuesta: 1 },
+{ pregunta: "Què ofereix el Cloud Computing?", opciones: ["Automatització de vehicles", "Provisió de serveis informàtics a través d'Internet", "Interacció home-màquina", "Creació de bessons digitals"], respuesta: 1 },
+{ pregunta: "Quina aplicació és típica de la Robòtica Avançada?", opciones: ["Assistents virtuals", "Robots col·laboratius en fàbriques", "Predicció de mercats", "Disseny de materials nanomètrics"], respuesta: 1 },
+{ pregunta: "Quina diferència hi ha entre AR i VR?", opciones: ["AR crea entorns digitals, VR afegeix elements a la realitat", "AR és només per jocs, VR és només per formació", "AR afegeix elements digitals a la realitat, VR crea un entorn totalment digital", "No tenen diferències significatives"], respuesta: 2 },
+{ pregunta: "Quina avantatge proporciona la Impressió 3D?", opciones: ["Incrementa la seguretat cibernètica", "Permet crear objectes capa a capa a partir de models digitals", "Optimitza la gestió energètica", "Millora la connectivitat IoT"], respuesta: 1 },
+{ pregunta: "Quin és l'objectiu principal de la Ciberseguretat?", opciones: ["Crear robots autònoms", "Protegir sistemes, xarxes i dades contra atacs", "Visualitzar dades complexes", "Automatitzar processos industrials"], respuesta: 1 },
+{ pregunta: "Per a què serveixen les Xarxes de Comunicacions Avançades?", opciones: ["Fabricar components electrònics", "Permetre comunicacions ràpides i fiables", "Simular processos industrials", "Monitoritzar l'energia renovable"], respuesta: 1 },
+{ pregunta: "Què són els Sistemes Ciberfísics (CPS)?", opciones: ["Sistemes de visualització de dades", "Integració de sistemes computacionals amb processos físics", "Robots d'assistència mèdica", "Plataformes col·laboratives"], respuesta: 1 },
+{ pregunta: "Quina és l'aplicació principal de la Geolocalització?", opciones: ["Predicció de demanda", "Determinació precisa de la ubicació geogràfica", "Creació de material nanomètric", "Automatització de processos industrials"], respuesta: 1 },
+{ pregunta: "Què ofereixen les Plataformes Col·laboratives?", opciones: ["Automatització de robots industrials", "Entorns digitals per a la col·laboració en temps real", "Simulació de processos físics", "Creació de bessons digitals"], respuesta: 1 },
+{ pregunta: "Quina funció té el Modelatge i Simulació Digital?", opciones: ["Supervisar sistemes a distància", "Simular i analitzar sistemes abans de la seva execució real", "Gestionar dades energètiques", "Controlar drons automàticament"], respuesta: 1 },
+{ pregunta: "Què integren els Sistemes de Gestió Integrada de Dades (ERP, CRM)?", opciones: ["Funcions empresarials per a una gestió eficient", "Dispositius IoT de baixa potència", "Robots de fabricació avançada", "Plataformes de visualització de dades"], respuesta: 0 },
+{ pregunta: "Què significa Hiperconnectivitat?", opciones: ["Connexió intermitent entre sistemes", "Estat de connexió constant entre múltiples dispositius", "Control remot d'energia renovable", "Creació de models predictius"], respuesta: 1 },
+{ pregunta: "Quina aplicació té la Nanotecnologia en medicina?", opciones: ["Prototipatge ràpid", "Drogues nanomètriques", "Automatització industrial", "Gestió energètica intel·ligent"], respuesta: 1 },
+{ pregunta: "Per a què serveixen els Sensors i Actuadors?", opciones: ["Crear interfícies gràfiques", "Detectar canvis en l'entorn i executar accions de resposta", "Simular processos digitals", "Gestionar dades empresarials"], respuesta: 1 },
+{ pregunta: "Què facilita la Interacció Home-Màquina (HMI)?", opciones: ["Connexió 5G", "Interacció entre humans i màquines mitjançant interfícies", "Generació d'energia solar", "Fabricació additiva"], respuesta: 1 },
+{ pregunta: "Quina aplicació tenen els Vehicles Autònoms i Drons?", opciones: ["Assistència mèdica", "Transport i logística sense intervenció humana", "Predicció financera", "Fabricació de materials"], respuesta: 1 },
+{ pregunta: "Què fan les Tecnologies d'Energia Renovable?", opciones: ["Controlen sensors avançats", "Generen i utilitzen energia eficientment a partir de fonts renovables", "Milloren la visualització de dades", "Automatitzen processos robòtics"], respuesta: 1 },
+{ pregunta: "Quina funció té la Microelectrònica i Fotònica?", opciones: ["Crear robots autònoms", "Processar i transmetre informació amb circuits electrònics i llum", "Simular bessons digitals", "Automatitzar processos empresarials"], respuesta: 1 },
+{ pregunta: "Què fa la Bioinformàtica i Biotecnologia?", opciones: ["Generar energia neta", "Aplicar tecnologia a la ciència biològica i mèdica per a producció industrial", "Automatitzar inspecció de qualitat", "Crear interfícies gràfiques"], respuesta: 1 },
+{ pregunta: "Quin és l'objectiu de la Ciència de Materials?", opciones: ["Crear aplicacions sense codi", "Desenvolupar materials amb propietats específiques millorades", "Connectar dispositius IoT", "Analitzar dades predictives"], respuesta: 1 },
+{ pregunta: "Per què serveixen els Sistemes de Monitorització Remota?", opciones: ["Supervisar i controlar processos industrials a distància", "Automatitzar robots mèdics", "Gestionar ERP i CRM", "Simular entorns virtuals"], respuesta: 0 },
+{ pregunta: "Què són les Xarxes Neuronals lligades a la IA Avançada?", opciones: ["Robots amb visió per ordinador", "Models inspirats en el cervell humà per aprenentatge profund", "Dispositius de baixa potència IoT", "Sistemes de monitorització remota"], respuesta: 1 },
+{ pregunta: "Què permet la Computació Quàntica?", opciones: ["Emmagatzemar dades en el núvol", "Processar informació amb principis de mecànica quàntica a gran velocitat", "Analitzar imatges industrials", "Crear bessons digitals"], respuesta: 1 },
+{ pregunta: "Per a què s'utilitza la Fibra Òptica?", opciones: ["Simulació digital", "Transmetre dades a grans distàncies amb alta velocitat", "Automatització de processos", "Reconeixement de veu"], respuesta: 1 },
+{ pregunta: "Quina funció té l'Anàlisi Predictiva?", opciones: ["Crear models 3D", "Predir resultats futurs amb dades i algoritmes", "Gestionar plataformes col·laboratives", "Automatitzar factures"], respuesta: 1 },
+{ pregunta: "Què és l'Edge Computing?", opciones: ["Processament de dades a centres centralitzats", "Processament de dades prop de la font per reduir latència", "Simulació de bessons digitals", "Automatització industrial avançada"], respuesta: 1 },
+{ pregunta: "Què ofereix la Computació en el Núvol Híbrid?", opciones: ["Ús exclusiu de núvol privat", "Combinació de núvol públic i privat per flexibilitat", "Interacció home-màquina", "Predicció financera"], respuesta: 1 },
+{ pregunta: "Quina utilitat tenen els Bessons Digitals?", opciones: ["Controlar energia renovable", "Simular i analitzar sistemes físics digitalment", "Gestionar projectes en línia", "Automatitzar robots"], respuesta: 1 },
+{ pregunta: "Per què és important la Interoperabilitat i Estandarització?", opciones: ["Redueix la latència de xarxes", "Permet que sistemes diferents treballin junts amb normes comunes", "Millora la visualització de dades", "Crea drons autònoms"], respuesta: 1 },
+{ pregunta: "Què inclou la Gestió del Canvi i Adaptació Cultural?", opciones: ["Canviar hardware industrial", "Gestió de transició a noves tecnologies amb capacitació i ajust cultural", "Analitzar dades massives", "Automatitzar inspecció de qualitat"], respuesta: 1 },
+{ pregunta: "Quina funció tenen els Serveis Compartits i RPA?", opciones: ["Automatitzar tasques repetitives amb robots de software", "Simular processos industrials", "Crear interfícies gràfiques", "Analitzar dades biològiques"], respuesta: 0 },
+{ pregunta: "Què permet la Machine Vision?", opciones: ["Veure i processar imatges per decisions automatitzades", "Gestionar energia renovable", "Analitzar dades financeres", "Crear materials nanomètrics"], respuesta: 0 },
+{ pregunta: "Què caracteritza la Connectivitat Massiva IoT?", opciones: ["Consum energètic alt", "Connexió de milions de dispositius amb consum baix", "Ús exclusiu en fabricació", "Control manual de dispositius"], respuesta: 1 },
+{ pregunta: "Quina aplicació té la Gestió Avançada de la Cadena de Subministrament?", opciones: ["Creació de bessons digitals", "Optimitzar logística i inventari en temps real", "Automatitzar processos educatius", "Generar energia neta"], respuesta: 1 },
+{ pregunta: "Què promou l'Economia Circular i Sostenibilitat?", opciones: ["Consum massiu de recursos", "Reutilització i reciclatge per reduir impacte ambiental", "Automatització industrial completa", "Creació de drons per logística"], respuesta: 1 },
+{ pregunta: "Quina és l'objectiu de la Seguretat Integral?", opciones: ["Crear interfícies gràfiques", "Protegir infraestructures, dades i persones contra amenaces", "Analitzar dades massives", "Simular processos industrials"], respuesta: 1 },
+{ pregunta: "Què fan les Tecnologies d'Assistència i Realitat Mixta?", opciones: ["Generen energia solar", "Combinen elements reals i digitals per assistència i experiència", "Automatitzen processos industrials", "Prediuen demanda futura"], respuesta: 1 },
+{ pregunta: "Què permeten les Tecnologies de Sensors Avançats?", opciones: ["Detecció precisa de canvis en l'entorn per monitorització", "Simulació de processos físics", "Creació de bessons digitals", "Automatització de factures"], respuesta: 0 },
+{ pregunta: "Quina característica principal té el 5G?", opciones: ["Velocitats baixes i alta latència", "Velocitats ultra ràpides i baixa latència", "Ús exclusiu en robòtica", "Automatització de processos ERP"], respuesta: 1 },
+{ pregunta: "Què ofereixen els Sistemes de Visualització de Dades?", opciones: ["Representació visual de dades per facilitar l'anàlisi", "Control remot de robots", "Simulació de materials nanomètrics", "Gestió energètica intel·ligent"], respuesta: 0 },
+{ pregunta: "Per a què serveixen les Xarxes de Senyalització i Control?", opciones: ["Transmetre dades d'alta velocitat", "Permetre comunicació i control en temps real de dispositius", "Crear aplicacions LowCode", "Fabricació additiva"], respuesta: 1 },
+{ pregunta: "Quina funció té l'Automatització de Qualitat i Inspecció?", opciones: ["Control manual de productes", "Inspecció i control de qualitat automatitzats", "Creació de bessons digitals", "Predicció de demanda"], respuesta: 1 },
+{ pregunta: "Què ofereixen les Plataformes de Serveis Integrats?", opciones: ["Integració de múltiples serveis en una sola plataforma", "Robots col·laboratius", "Simulació digital", "Xarxes neuronals"], respuesta: 0 },
+{ pregunta: "Què implica la Integració de Sistemes IoT amb AI?", opciones: ["Ús exclusiu de sensors", "Dispositius IoT que poden prendre decisions intel·ligents amb IA", "Automatització manual", "Creació de bessons digitals"], respuesta: 1 },
+{ pregunta: "Per a què serveixen els Sistemes de Gestió Energètica?", opciones: ["Automatitzar inspecció", "Optimitzar ús i distribució d'energia", "Simular processos industrials", "Analitzar dades financeres"], respuesta: 1 },
+{ pregunta: "Què ofereixen les Tecnologies de Suport a la Presa de Decisió?", opciones: ["Visualització de dades per presa de decisions empresarials", "Creació de robots avançats", "Fabricació flexible", "Gestió energètica"], respuesta: 0 },
+{ pregunta: "Quin avantatge proporcionen les Plataformes LowCode/No-Code?", opciones: ["Desenvolupar aplicacions sense necessitat de codificació profunda", "Automatitzar vehicles autònoms", "Predir resultats futurs", "Simular processos industrials"], respuesta: 0 },
+{ pregunta: "Què és la Seguretat en Endpoints?", opciones: ["Protecció de centres de dades", "Protecció de dispositius finals contra amenaces de seguretat", "Automatització de processos ERP", "Creació de bessons digitals"], respuesta: 1 },
+{ pregunta: "Quina utilitat tenen els Drons per Inspecció i Logística?", opciones: ["Transport manual de mercaderies", "Inspecció d'infraestructures i lliurament automàtic de materials", "Automatitzar processos financers", "Predicció de mercat"], respuesta: 1 },
+{ pregunta: "Què fan les Eines de Col·laboració en Línia i Gestió de Projectes?", opciones: ["Automatitzen la producció industrial", "Faciliten la col·laboració remota i gestió de projectes", "Creen sensors avançats", "Prediuen demanda futura"], respuesta: 1 },
+{ pregunta: "Què caracteritza les Tecnologies de Fabricació Flexible?", opciones: ["Producció rígida i estàtica", "Adaptabilitat ràpida a canvis de disseny o demanda", "Predicció de demanda", "Automatització de processos financers"], respuesta: 1 },
+{ pregunta: "Quina diferència hi ha entre HD, THD i Solucions Digitals?", opciones: ["No hi ha diferències", "HD són capacitats, THD són eines, Solucions Digitals són productes", "THD són capacitats, HD són eines, Solucions Digitals són serveis", "HD i THD són iguals, Solucions Digitals són serveis"], respuesta: 1 },
+{ pregunta: "Quin paper tenen els Habilitadors Digitals en la indústria 4.0?", opciones: ["Crear jocs virtuals", "Impulsar la transformació digital i intel·ligent de la indústria", "Automatitzar només processos manuals", "Gestionar només dades energètiques"], respuesta: 1 },
+{ pregunta: "Quin factor és clau per a l'èxit en la transformació digital?", opciones: ["Només la tecnologia", "Canvi cultural i competències digitals dels professionals", "Ús exclusiu de cloud computing", "Robòtica avançada"], respuesta: 1 },
+{ pregunta: "Què permet la diferenciació entre HD, THD i Solucions Digitals?", opciones: ["Confondre els mitjans amb els fins", "Seleccionar i implementar tecnologies adequades segons les necessitats", "Crear només interfícies gràfiques", "Predir demanda sense dades"], respuesta: 1 },
+{ pregunta: "Quina és la finalitat del diagnòstic i observació permanent en transformació digital?", opciones: ["Reduir costos de hardware", "Identificar barreres i assegurar sostenibilitat del procés", "Automatitzar robots col·laboratius", "Predir resultats financers"], respuesta: 1 },
+{ pregunta: "Què implica digitalitzar una empresa?", opciones: ["Només implementar software", "Incorporar eines, tecnologia i ecosistemes digitals per millorar la interacció amb clients", "Només utilitzar cloud computing", "Automatitzar la producció sense dades"], respuesta: 1 },
+{ pregunta: "Què són les Tecnologies Habilitadores Digitals (THD)?", opciones: ["Eines que faciliten la transformació digital de les empreses", "Dispositius de seguretat física", "Models de negoci tradicionals", "Programes d'ofimàtica bàsics"], respuesta: 0 },
+{ pregunta: "Quina característica permet la connexió entre diferents sistemes i plataformes?", opciones: ["Automatització", "Escalabilitat", "Flexibilitat", "Interconnexió i Integració"], respuesta: 3 },
+{ pregunta: "Quina THD facilita la reducció de la intervenció manual i augmenta la precisió?", opciones: ["Interconnexió", "Analítica de dades", "Hiperconnectivitat", "Automatització"], respuesta: 3 },
+{ pregunta: "Quina característica implica recollir i analitzar grans volums de dades?", opciones: ["Interconnexió i Integració", "Automatització", "Flexibilitat", "Analítica i Processament de Dades"], respuesta: 3 },
+{ pregunta: "Quina propietat de les THD permet adaptar-se a les necessitats canviants de l'empresa?", opciones: ["Seguretat", "Personalització", "Nanotecnologia", "Escalabilitat"], respuesta: 3 },
+{ pregunta: "Quina característica permet adaptar-se ràpidament als canvis del mercat?", opciones: ["Automatització", "Edge Computing", "Blockchain", "Flexibilitat i Adaptabilitat"], respuesta: 3 },
+{ pregunta: "Com contribueixen les THD a la transformació dels models de negoci?", opciones: ["Redueixen la velocitat de processos", "Incrementen la intervenció manual", "Disminueixen la personalització", "Permeten nous models com serveis de subscripció i comerç electrònic"], respuesta: 3 },
+{ pregunta: "Quin és l'impacte principal de les THD en l'eficiència operativa?", opciones: ["Creen nous productes físics", "Disminueixen la flexibilitat", "Incrementen errors humans", "Optimitzen processos i redueixen costos"], respuesta: 3 },
+{ pregunta: "Com fomenten les THD la competitivitat empresarial?", opciones: ["Augmentant la burocràcia", "Limitant la comunicació digital", "Reduint la capacitat analítica", "Mitjançant la innovació contínua i adaptació al mercat"], respuesta: 3 },
+{ pregunta: "Quina THD permet oferir experiències personalitzades als clients?", opciones: ["Automatització industrial", "Nanotecnologia", "Realitat Virtual", "Analítica de dades i interacció digital"], respuesta: 3 },
+{ pregunta: "Què és l'Internet de les Coses (IoT)?", opciones: ["Programari d'ofimàtica", "Sistema de seguretat física", "Xarxa social empresarial", "Xarxa de dispositius connectats que intercanvien dades en temps real"], respuesta: 3 },
+{ pregunta: "Quines aplicacions són comunes de l'IoT?", opciones: ["Edició de documents, processament de textos", "Disseny gràfic", "Reproducció de vídeo en línia", "Cases intel·ligents, manteniment predictiu, gestió de ciutats intel·ligents"], respuesta: 3 },
+{ pregunta: "Què és el Big Data?", opciones: ["Dispositius físics connectats", "Robot col·laboratiu", "Infraestructura de xarxa", "Processament i anàlisi de grans volums de dades per extreure informació valuosa"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té el Big Data?", opciones: ["Robots mèdics", "Disseny de videojocs", "Simulacions físiques", "Anàlisi de mercat, personalització de clients, detecció de fraus"], respuesta: 3 },
+{ pregunta: "Què permet la Intel·ligència Artificial (IA)?", opciones: ["Emmagatzemar dades al núvol", "Fabricar productes físics", "Dissenyar xarxes elèctriques", "Realitzar tasques que normalment requereixen intel·ligència humana"], respuesta: 3 },
+{ pregunta: "Quines aplicacions són típiques de la IA?", opciones: ["Producció d'energia solar", "Control manual de processos", "Fabricació de peces 3D", "Assistents virtuals, reconeixement de veu, anàlisi predictiva"], respuesta: 3 },
+{ pregunta: "Què és l'Aprenentatge Automàtic (Machine Learning)?", opciones: ["Programari antivirus", "Xarxa de telecomunicacions", "Sistemes ERP", "Subcamp de la IA que permet aprendre de dades sense programació explícita"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té el Machine Learning?", opciones: ["Control de xarxes elèctriques", "Gestió de projectes manual", "Fabricació de turbines eòliques", "Reconeixement d'imatges, recomanacions, diagnòstics mèdics"], respuesta: 3 },
+{ pregunta: "Què és el Blockchain?", opciones: ["Xarxa de sensors", "Robot col·laboratiu", "Plataforma de visualització de dades", "Llibre de registre digital distribuït per a transaccions segures"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té el Blockchain?", opciones: ["Edificis intel·ligents", "Assistència mèdica remota", "Emmagatzematge de dades al núvol", "Criptomonedes, contractes intel·ligents, traçabilitat de la cadena de subministrament"], respuesta: 3 },
+{ pregunta: "Què és el Cloud Computing?", opciones: ["Xarxa de drons", "Sensors avançats", "Blockchain", "Provisió de serveis informàtics a través d'Internet"], respuesta: 3 },
+{ pregunta: "Quines aplicacions són típiques del Cloud Computing?", opciones: ["Manteniment predictiu", "Robòtica avançada", "Anàlisi predictiva", "Emmagatzematge de dades, computació remota, SaaS"], respuesta: 3 },
+{ pregunta: "Què és la Robòtica Avançada?", opciones: ["Tecnologia de sensors simples", "Plataforma de serveis integrats", "Machine Learning", "Ús de robots amb capacitats avançades per tasques complexes"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té la Robòtica Avançada?", opciones: ["Disseny gràfic", "Emmagatzematge de dades al núvol", "Xarxes socials", "Automòbils autònoms, robots col·laboratius, assistència mèdica"], respuesta: 3 },
+{ pregunta: "Què són la Realitat Augmentada i Virtual (AR/VR)?", opciones: ["Sensors de pressió", "Infraestructura de xarxa 5G", "Robòtica bàsica", "Tecnologies per interactuar amb entorns virtuals i dades digitals"], respuesta: 3 },
+{ pregunta: "Quines aplicacions tenen AR i VR?", opciones: ["Emmagatzematge al núvol", "Blockchain", "Gestió energètica", "Jocs interactius, entrenament professional, visualització de dissenys"], respuesta: 3 },
+{ pregunta: "Què és la Impressió 3D?", opciones: ["Sistema de seguretat integral", "Xarxa de senyalització", "Anàlisi predictiva", "Procés de crear objectes tridimensionals a partir de models digitals"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té la Impressió 3D?", opciones: ["Robots col·laboratius", "Plataformes col·laboratives", "Computació quàntica", "Prototipatge ràpid, peces personalitzades, indústria mèdica"], respuesta: 3 },
+{ pregunta: "Què és la Ciberseguretat?", opciones: ["Simulació digital de processos", "Sensors i actuadors", "Plataformes LowCode", "Protecció de sistemes i dades contra atacs cibernètics"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té la Ciberseguretat?", opciones: ["Creació de models digitals", "Manteniment predictiu", "Recomanacions de productes", "Protecció de dades personals i empresarials, infraestructures crítiques"], respuesta: 3 },
+{ pregunta: "Què són les Xarxes de Comunicacions Avançades?", opciones: ["Robòtica avançada", "Disseny de productes", "Machine Vision", "Tecnologies que permeten comunicacions ràpides i fiables"], respuesta: 3 },
+{ pregunta: "Quines aplicacions tenen les Xarxes Avançades?", opciones: ["Fabricació additiva", "Reconeixement de veu", "Simulació de pilots", "Banda ampla, 5G, IoT"], respuesta: 3 },
+{ pregunta: "Què són els Sistemes Ciberfísics (CPS)?", opciones: ["Aplicacions mòbils", "Machine Learning bàsic", "Blockchain", "Integració de sistemes computacionals amb processos físics"], respuesta: 3 },
+{ pregunta: "Quines aplicacions tenen els CPS?", opciones: ["Xarxes socials", "Disseny gràfic", "Robòtica educativa", "Control industrial, vehicles autònoms, dispositius mèdics implantables"], respuesta: 3 },
+{ pregunta: "Què és la Geolocalització?", opciones: ["Sistema de visualització de dades", "Edge computing", "Digital twins", "Determinació de la ubicació geogràfica d'un objecte o persona"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té la Geolocalització?", opciones: ["Blockchain", "Robots mèdics", "Cloud Computing", "Navegació GPS, seguiment de vehicles, aplicacions de localització"], respuesta: 3 },
+{ pregunta: "Què són les Plataformes Col·laboratives?", opciones: ["Sensors avançats", "Robòtica bàsica", "Sistemes energètics", "Entorns digitals que faciliten la col·laboració entre usuaris"], respuesta: 3 },
+{ pregunta: "Quines aplicacions tenen les Plataformes Col·laboratives?", opciones: ["Blockchain", "Computació quàntica", "Anàlisi predictiva", "Treball remot, gestió de projectes, xarxes socials empresarials"], respuesta: 3 },
+{ pregunta: "Què és el Modelatge i Simulació Digital?", opciones: ["Plataformes LowCode", "Sistemes energètics", "Xarxes 5G", "Creació de models digitals per simular i analitzar sistemes complexos"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té el Modelatge i Simulació Digital?", opciones: ["Emmagatzematge de dades", "Blockchain", "Robòtica educativa", "Disseny de productes, simulació industrial, entrenament de pilots"], respuesta: 3 },
+{ pregunta: "Què són els Sistemes de Gestió Integrada de Dades (ERP, CRM)?", opciones: ["Sensors i actuadors", "Robòtica avançada", "Machine vision", "Plataformes que integren funcions empresarials per a una gestió eficient"], respuesta: 3 },
+{ pregunta: "Quines aplicacions tenen els ERP i CRM?", opciones: ["Xarxes socials", "Fabricació additiva", "Simulació digital", "Gestió de recursos empresarials i relacions amb clients"], respuesta: 3 },
+{ pregunta: "Què és la Hiperconnectivitat?", opciones: ["Robòtica col·laborativa", "Sistemes energètics", "Nanotecnologia", "Estat en què múltiples dispositius estan constantment connectats"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té la Hiperconnectivitat?", opciones: ["Edificis intel·ligents", "Blockchain", "Visualització de dades", "Ciutats intel·ligents, xarxes domèstiques, IoT"], respuesta: 3 },
+{ pregunta: "Què és la Nanotecnologia?", opciones: ["Sistemes ERP", "Robòtica avançada", "Machine Learning", "Manipulació de matèria a escala nanomètrica per crear nous materials i dispositius"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té la Nanotecnologia?", opciones: ["Gestió de projectes", "IoT bàsic", "Simulació digital", "Medicina, electrònica, materials d'alt rendiment"], respuesta: 3 },
+{ pregunta: "Què són els Sensors i Actuadors?", opciones: ["Plataformes col·laboratives", "Cloud Computing", "Blockchain", "Dispositius que detecten canvis i realitzen accions com a resposta"], respuesta: 3 },
+{ pregunta: "Quines aplicacions tenen els Sensors i Actuadors?", opciones: ["Visualització de dades", "Simulació digital", "Educació virtual", "Automòbils autònoms, sistemes de seguretat, domòtica"], respuesta: 3 },
+{ pregunta: "Què és la Interacció Home-Màquina (HMI)?", opciones: ["Robòtica bàsica", "Sistemes energètics", "Blockchain", "Tecnologies que faciliten la interacció entre humans i màquines"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té la HMI?", opciones: ["Edge computing", "Cloud Computing", "Machine Learning", "Pantalles tàctils, reconeixement de veu, interfícies cervell-ordinador"], respuesta: 3 },
+{ pregunta: "Què són els Vehicles Autònoms i Drons?", opciones: ["Sensors de pressió", "Plataformes LowCode", "Visualització de dades", "Dispositius capaços d'operar sense intervenció humana"], respuesta: 3 },
+{ pregunta: "Quines aplicacions tenen els Vehicles Autònoms i Drons?", opciones: ["Blockchain", "Robòtica bàsica", "Simulació digital", "Logística, agricultura de precisió, transport de persones"], respuesta: 3 },
+{ pregunta: "Què són les Tecnologies d'Energia Renovable?", opciones: ["Machine Learning", "Sensors avançats", "Visualització de dades", "Tecnologies que permeten generar i utilitzar energia eficientment"], respuesta: 3 },
+{ pregunta: "Quines aplicacions tenen les Tecnologies d'Energia Renovable?", opciones: ["Simulació digital", "Blockchain", "Plataformes LowCode", "Panells solars, turbines eòliques, gestió energètica"], respuesta: 3 },
+{ pregunta: "Què és la Microelectrònica i Fotònica?", opciones: ["Robòtica avançada", "Cloud Computing", "Sensors i actuadors", "Tecnologies basades en circuits electrònics i llum per processar informació"], respuesta: 3 },
+{ pregunta: "Quines aplicacions té la Microelectrònica i Fotònica?", opciones: ["Educació interactiva", "Simulació de pilots", "Robots col·laboratius", "Processadors, comunicacions òptiques, sensors"], respuesta: 3 },
+{ pregunta: "Què és la Bioinformàtica i Biotecnologia?", opciones: ["Aplicació de tecnologia a les ciències biològiques i mèdiques", "Robòtica educativa", "Edge computing", "Machine vision"], respuesta: 0 },
+{ pregunta: "Quines aplicacions té la Bioinformàtica?", opciones: ["IoT bàsic", "Sistemes energètics", "Seqüenciació de genomes, nous medicaments, bioreactors", "Plataformes col·laboratives"], respuesta: 2 },
+{ pregunta: "Què és la Ciència de Materials?", opciones: ["Blockchain", "Robòtica avançada", "Estudi i desenvolupament de materials amb propietats millorades", "Machine Learning"], respuesta: 2 },
+{ pregunta: "Quines aplicacions té la Ciència de Materials?", opciones: ["Materials lleugers per aviació, aliatges resistents, biodegradables", "Simulació digital", "Plataformes LowCode", "HMI"], respuesta: 2 },
+{ pregunta: "Què són els Sistemes de Monitorització Remota?", opciones: ["Tecnologies per supervisar i controlar sistemes a distància", "Machine vision", "Digital twins", "Cloud Computing"], respuesta: 2 },
+{ pregunta: "Quines aplicacions tenen els Sistemes de Monitorització Remota?", opciones: ["Vigilància de la salut, monitorització industrial, gestió de flotes", "Blockchain", "Robòtica col·laborativa", "Educació interactiva"], respuesta: 2 },
+{ pregunta: "Què són les Xarxes Neuronals Avançades?", opciones: ["Models computacionals inspirats en el cervell per deep learning", "Sensors bàsics", "Sistemes energètics", "Plataformes LowCode"], respuesta: 2 },
+{ pregunta: "Quines aplicacions tenen les Xarxes Neuronals Avançades?", opciones: ["Reconeixement de veu i imatges, traducció automàtica, jocs d'estratègia", "Simulació digital", "Visualització de dades", "Robòtica bàsica"], respuesta: 2 },
+{ pregunta: "Què és la Computació Quàntica?", opciones: ["Processament de dades amb principis de mecànica quàntica", "Sensors i actuadors", "HMI", "Blockchain"], respuesta: 2 },
+{ pregunta: "Quines aplicacions té la Computació Quàntica?", opciones: ["Criptografia avançada, simulacions de molècules, optimització complexa", "Robòtica educativa", "Edge computing", "Plataformes LowCode"], respuesta: 2 },
+{ pregunta: "Què és la Fibra Òptica?", opciones: ["Tecnologia que transmet dades amb llum a alta velocitat", "Machine vision", "Simulació digital", "Sensors bàsics"], respuesta: 2 },
+{ pregunta: "Quines aplicacions té la Fibra Òptica?", opciones: ["Internet d'alta velocitat, telecomunicacions, xarxes de dades", "Robòtica col·laborativa", "Cloud computing", "Blockchain"], respuesta: 2 },
+{ pregunta: "Què són les Tecnologies Habilitadores Digitals (THD)?", opciones: ["Eines per a la transformació digital", "Robots de fabricació industrial", "Sistemes operatius per a ordinadors", "Aplicacions mòbils de comunicació"], respuesta: 2 },
+{ pregunta: "Quina característica permet als THD connectar diferents sistemes i dispositius?", opciones: ["Automatització", "Escalabilitat", "Interconnexió i integració", "Flexibilitat"], respuesta: 2 },
+{ pregunta: "Quina funció dels THD ajuda a reduir la intervenció manual?", opciones: ["Automatització", "Transformació de models de negoci", "Analítica de dades", "Interconnexió"], respuesta: 2 },
+{ pregunta: "Què permet l’analítica i processament de dades en els THD?", opciones: ["Recollir i analitzar grans volums de dades", "Millorar la precisió manual", "Augmentar la latència en processos", "Crear hardware físic"], respuesta: 2 },
+{ pregunta: "Quina característica dels THD permet créixer segons les necessitats empresarials?", opciones: ["Escalabilitat", "Flexibilitat", "Seguretat", "Interconnexió"], respuesta: 2 },
+{ pregunta: "Què proporciona la flexibilitat i adaptabilitat dels THD?", opciones: ["Adaptació ràpida als canvis del mercat", "Millora de la seguretat de dades", "Reducció del consum energètic", "Increment de la latència de xarxa"], respuesta: 2 },
+{ pregunta: "Com contribueixen els THD a la transformació dels models de negoci?", opciones: ["Permetent serveis de subscripció i comerç electrònic personalitzat", "Reduint la interconnexió entre sistemes", "Automatitzant només processos administratius", "Incrementant la complexitat del software"], respuesta: 2 },
+{ pregunta: "Com ajuden els THD a millorar l’eficiència operativa?", opciones: ["Reemplaçant completament els treballadors humans", "Creant noves xarxes socials", "Optimitzant processos i reduint costos", "Incrementant el temps de resposta"], respuesta: 2 },
+{ pregunta: "Com fomenten els THD la innovació i competitivitat?", opciones: ["Reduint la personalització de serveis", "Creant només aplicacions mòbils", "Adaptant-se als canvis de mercat i tecnologies", "Augmentant el consum de recursos"], respuesta: 2 },
+{ pregunta: "Quina característica dels THD millora l’experiència del client?", opciones: ["Automatització de processos interns només", "Reducció de la interconnexió", "Personalització basada en anàlisi de dades", "Augment de la latència de xarxa"], respuesta: 2 },
+{ pregunta: "Què defineix Internet de les Coses (IoT)?", opciones: ["Sistema d’emmagatzematge de dades al núvol", "Model d’IA per reconeixement de veu", "Plataforma de col·laboració empresarial", "Xarxa de dispositius físics connectats a Internet que recopilen dades"], respuesta: 2 },
+{ pregunta: "Quina aplicació és típica de l’IoT?", opciones: ["Blockchain", "Impressió 3D", "Computació quàntica", "Cases intel·ligents"], respuesta: 2 },
+{ pregunta: "Què és Big Data?", opciones: ["Xarxa de sensors connectats", "Sistema de realitat virtual", "Tecnologia de vehicles autònoms", "Processament i anàlisi de grans volums de dades"], respuesta: 2 },
+{ pregunta: "Quina aplicació té Big Data en les empreses?", opciones: ["Monitorització de drones", "Emmagatzematge físic de documents", "Control de robots industrials", "Personalització de l’experiència del client"], respuesta: 2 },
+{ pregunta: "Com es defineix la Intel·ligència Artificial (IA)?", opciones: ["Sistema de xarxes de comunicació", "Hardware per vehicles autònoms", "Eina de simulació digital", "Tecnologia que permet a les màquines realitzar tasques que requereixen intel·ligència humana"], respuesta: 2 },
+{ pregunta: "Quina és una aplicació típica de la IA?", opciones: ["Xarxes de fibra òptica", "Plataformes ERP", "Creació de materials nanomètrics", "Assistents virtuals"], respuesta: 2 },
+{ pregunta: "Què és l’Aprenentatge Automàtic (Machine Learning)?", opciones: ["Sistemes de monitorització remota", "Xarxa de sensors IoT", "Tecnologia per imprimir objectes 3D", "Subcamp de la IA que permet aprendre de dades sense programació explícita"], respuesta: 2 },
+{ pregunta: "Quina aplicació és típica del Machine Learning?", opciones: ["Disseny de panells solars", "Recomanacions de productes", "Control de trànsit urbà", "Blockchain"], respuesta: 2 },
+{ pregunta: "Què és Blockchain?", opciones: ["Tecnologia de visualització de dades", "Sistema de gestió energètica", "Llibre de registre digital distribuït per a transaccions segures", "Plataforma de col·laboració en línia"], respuesta: 2 },
+{ pregunta: "Quina aplicació té Blockchain?", opciones: ["Assistència mèdica", "Manufactura flexible", "Xarxes domèstiques", "Criptomonedes"], respuesta: 2 },
+{ pregunta: "Què és Cloud Computing?", opciones: ["Sistema de control de drons", "Tecnologia per a vehicles autònoms", "Provisió de serveis informàtics a través d’Internet", "Dispositius de sensors avançats"], respuesta: 2 },
+{ pregunta: "Quina aplicació té Cloud Computing?", opciones: ["Emmagatzematge de dades i SaaS", "Anàlisi de mercat", "Robòtica mèdica", "Reconeixement de veu"], respuesta: 2 },
+{ pregunta: "Quina aplicació és típica de la robòtica avançada?", opciones: ["Robots col·laboratius en fàbriques", "Blockchain", "Realitat virtual", "Computació quàntica"], respuesta: 0 },
+{ pregunta: "Què són AR i VR?", opciones: ["Tecnologies per visualitzar i interactuar amb entorns virtuals o augmentats", "Xarxes de comunicació 5G", "Sistemes de gestió energètica", "Plataformes ERP"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la realitat augmentada i virtual?", opciones: ["Jocs interactius i entrenament professional", "Gestió de dades de clients", "Vehicles autònoms", "Prototipatge 3D"], respuesta: 0 },
+{ pregunta: "Què és la impressió 3D o fabricació additiva?", opciones: ["Procés de creació d’objectes capa a capa a partir de models digitals", "Sistema de monitorització remota", "Tecnologia de vehicles autònoms", "Xarxes neuronals artificials"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la impressió 3D?", opciones: ["Prototipatge ràpid i personalització de peces", "Predicció de demanda", "Assistents virtuals", "Control de xarxes"], respuesta: 0 },
+{ pregunta: "Què és la ciberseguretat?", opciones: ["Protecció de sistemes i dades contra atacs cibernètics", "Tecnologia de sensors avançats", "Sistema de fabricació flexible", "Xarxes de comunicació 5G"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la ciberseguretat?", opciones: ["Protecció d’infraestructures crítiques", "Control de robots industrials", "Simulació digital", "Plataformes ERP"], respuesta: 0 },
+{ pregunta: "Què són les Xarxes de Comunicacions Avançades?", opciones: ["Tecnologies de xarxa per a comunicacions ràpides i fiables", "Sistemes de monitorització remota", "Robòtica avançada", "Vehicles autònoms"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen les xarxes avançades?", opciones: ["5G i IoT", "Blockchain", "Computació quàntica", "Robòtica mèdica"], respuesta: 0 },
+{ pregunta: "Què són els Sistemes Ciberfísics (CPS)?", opciones: ["Integració de sistemes computacionals amb processos físics", "Xarxes domèstiques IoT", "Eines de visualització de dades", "Plataformes col·laboratives"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen els CPS?", opciones: ["Control de processos industrials i vehicles autònoms", "Blockchain", "Prototipatge 3D", "Xarxes de fibra òptica"], respuesta: 0 },
+{ pregunta: "Què és la geolocalització?", opciones: ["Determinació precisa de la ubicació geogràfica d’un objecte o persona", "Anàlisi predictiva de dades", "Simulació de processos industrials", "Control remot de robots"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la geolocalització?", opciones: ["Navegació GPS i seguiment de vehicles", "Xarxes neuronals", "Vehicles autònoms", "Disseny de productes"], respuesta: 0 },
+{ pregunta: "Què són les Plataformes Col·laboratives?", opciones: ["Entorns digitals que faciliten la col·laboració entre usuaris", "Sistemes de gestió energètica", "Dispositius IoT de baixa potència", "Sistemes de visualització de dades"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen les plataformes col·laboratives?", opciones: ["Treball en equip remot i gestió de projectes", "Control de qualitat automàtic", "Disseny de materials nanomètrics", "Predicció de demanda"], respuesta: 0 },
+{ pregunta: "Què és el Modelatge i Simulació Digital?", opciones: ["Creació de models digitals per simular sistemes complexos", "Sistema de monitorització remota", "Plataforma ERP", "Xarxa de sensors IoT"], respuesta: 0 },
+{ pregunta: "Quina aplicació té el modelatge i simulació digital?", opciones: ["Simulació de processos industrials i entrenament de pilots", "Assistència mèdica", "Blockchain", "Xarxes neuronals"], respuesta: 0 },
+{ pregunta: "Què són els Sistemes de Gestió Integrada de Dades (ERP, CRM)?", opciones: ["Plataformes que integren funcions empresarials per a una gestió eficient", "Sistemes de comunicació avançada", "Plataformes col·laboratives", "Sistemes ciberfísics"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen els ERP i CRM?", opciones: ["Gestió de recursos empresarials i relacions amb clients", "Vehicles autònoms", "Computació quàntica", "Fabricació additiva"], respuesta: 0 },
+{ pregunta: "Què és la hiperconnectivitat?", opciones: ["Connexió constant i a alta velocitat entre múltiples dispositius", "Control remot de sensors industrials", "Plataformes col·laboratives", "Robòtica avançada"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la hiperconnectivitat?", opciones: ["Ciutats intel·ligents i xarxes domèstiques", "Simulació digital", "Visualització de dades", "Producció flexible"], respuesta: 0 },
+{ pregunta: "Què és la nanotecnologia?", opciones: ["Manipulació de la matèria a escala nanomètrica per crear nous materials i dispositius", "Sistemes de monitorització remota", "Plataformes ERP", "Xarxes de senyalització"], respuesta: 0 },
+{ pregunta: "Quina aplicació té la nanotecnologia?", opciones: ["Medicina i electrònica d’alt rendiment", "Gestió de projectes", "Vehicles autònoms", "Disseny de productes 3D"], respuesta: 0 },
+{ pregunta: "Què són els sensors i actuadors?", opciones: ["Dispositius que detecten canvis i actuen en conseqüència", "Sistemes de visualització de dades", "Plataformes col·laboratives", "Vehicles autònoms"], respuesta: 0 },
+{ pregunta: "Quina aplicació tenen els sensors i actuadors?", opciones: ["Automòbils autònoms i domòtica", "Simulació digital", "Blockchain", "Computació quàntica"], respuesta: 0 },
+{ pregunta: "Què és la interacció home-màquina (HMI)?", opciones: ["Tecnologies que faciliten la interacció entre humans i màquines", "Sistemes de gestió energètica", "Xarxes neuronals", "Blockchain"], respuesta: 0 },
+//Punt2
+{ pregunta: "Què són les Tecnologies Habilitadores Digitals (THD)?", opciones: ["Tecnologies per crear videojocs", "Tecnologies avançades que transformen productes i serveis", "Aplicacions de xarxes socials", "Plataformes d'e-commerce"], respuesta: 1 },
+{ pregunta: "Com poden les THD millorar els serveis d'una empresa?", opciones: ["Reduint els salaris dels empleats", "Personalitzant les ofertes i augmentant l'eficiència operativa", "Eliminant la publicitat", "Substituint tota la plantilla per robots"], respuesta: 1 },
+{ pregunta: "Quina THD s'utilitza per crear productes connectats amb dades en temps real?", opciones: ["Big Data", "IoT", "Blockchain", "Robòtica Avançada"], respuesta: 1 },
+{ pregunta: "Quina tecnologia permet la personalització dels serveis segons necessitats dels clients?", opciones: ["Big Data i Analítica de Dades", "Impressió 3D", "Realitat Virtual", "Ciberseguretat"], respuesta: 0 },
+{ pregunta: "Quina THD facilita la fabricació de productes amb alta precisió?", opciones: ["Cloud Computing", "Robòtica Avançada", "IoT", "Geolocalització"], respuesta: 1 },
+{ pregunta: "Com contribueix el Blockchain al desenvolupament de serveis?", opciones: ["Creant productes connectats", "Transaccions segures i contractes intel·ligents", "Automatitzant serveis físics", "Millorant la realitat augmentada"], respuesta: 1 },
+{ pregunta: "Quina tecnologia permet crear productes intel·ligents amb capacitat d'aprenentatge?", opciones: ["IA", "Machine Learning", "Big Data", "IoT"], respuesta: 0 },
+{ pregunta: "Quin benefici aporta la digitalització a la sostenibilitat empresarial?", opciones: ["Augment del consum de recursos", "Reducció de l'impacte ambiental i optimització de recursos", "Major complexitat en la gestió", "Reducció de la productivitat"], respuesta: 1 },
+{ pregunta: "Quina estratègia digital pot ajudar a reduir emissions de CO2 derivades dels desplaçaments?", opciones: ["Treball remot", "Blockchain", "Impressió 3D", "AR/VR"], respuesta: 0 },
+{ pregunta: "Quina THD és clau per a l'optimització de la cadena de subministrament?", opciones: ["IoT i analítica de dades", "Ciberseguretat", "Realitat Virtual", "ERP"], respuesta: 0 },
+{ pregunta: "Com pot la IA contribuir a la sostenibilitat?", opciones: ["Dissenyant productes més eficients i menys contaminants", "Creant espais d'oficina més grans", "Augmentant les emissions de CO2", "Reduint la connectivitat"], respuesta: 0 },
+{ pregunta: "Quina THD permet monitoritzar en temps real l'ús de recursos com l'aigua i l'energia?", opciones: ["Geolocalització", "IoT", "Cloud Computing", "Big Data"], respuesta: 1 },
+{ pregunta: "Com pot el cloud computing ajudar a les empreses a ser més sostenibles?", opciones: ["Incrementant l'ús de servidors físics", "Reduint la necessitat d'infraestructures físiques i consum energètic", "Substituint empleats per robots", "Augmentant el malbaratament de recursos"], respuesta: 1 },
+{ pregunta: "Quina tecnologia digital facilita la predicció de comportaments i la personalització de serveis?", opciones: ["Machine Learning", "Impressió 3D", "Blockchain", "AR/VR"], respuesta: 0 },
+{ pregunta: "Com poden les tecnologies verdes ajudar a combatre el canvi climàtic?", opciones: ["Monitoratge ambiental, eficiència energètica i transport sostenible", "Creant productes més cars", "Augmentant l'ús de combustibles fòssils", "Eliminant Big Data"], respuesta: 0 },
+{ pregunta: "Quina THD ajuda a l'automatització de processos per reduir residus i consum d'energia?", opciones: ["Robòtica Avançada", "Machine Learning", "AR/VR", "Ciberseguretat"], respuesta: 0 },
+{ pregunta: "Quin paper té el blockchain en models de negoci circulars?", opciones: ["Optimitza la impressió 3D", "Rastreja materials des del seu origen fins al final de vida", "Millora la realitat augmentada", "Augmenta el consum energètic"], respuesta: 1 },
+{ pregunta: "Com contribueix la geolocalització a la sostenibilitat?", opciones: ["Planificant rutes intel·ligents i millorant l'eficiència del transport", "Millorant la fabricació de productes", "Augmentant la productivitat dels empleats", "Creant serveis virtuals"], respuesta: 0 },
+{ pregunta: "Quina THD facilita el desenvolupament de productes i serveis més segurs?", opciones: ["Ciberseguretat", "IoT", "Big Data", "Cloud Computing"], respuesta: 0 },
+{ pregunta: "Quin és l'objectiu principal de la transformació digital en les empreses?", opciones: ["Augmentar l'eficiència, competitivitat i innovació", "Reduir la digitalització", "Incrementar el consum de recursos", "Eliminar el treball remot"], respuesta: 0 },
+{ pregunta: "Com ajuda el Big Data en la sostenibilitat?", opciones: ["Analitzant dades per identificar consum excessiu i millorar l'ús de recursos", "Augmentant emissions de gasos", "Creant prototips físics", "Automatitzant la impressió 3D"], respuesta: 0 },
+{ pregunta: "Quin avantatge té l'ús de plataformes digitals per a l'educació ambiental?", opciones: ["Informar i conscienciar sobre sostenibilitat", "Augmentar el consum de materials", "Reduir la connectivitat", "Crear productes intel·ligents"], respuesta: 0 },
+{ pregunta: "Quina THD permet la fabricació ràpida de prototips personalitzats?", opciones: ["Impressió 3D", "IoT", "Ciberseguretat", "Cloud Computing"], respuesta: 0 },
+{ pregunta: "Quina relació existeix entre transformació digital i canvi climàtic?", opciones: ["Les tecnologies digitals poden ajudar a reduir impactes ambientals i emissions", "No tenen relació", "La digitalització augmenta emissions de CO2", "Només afecta la cultura empresarial"], respuesta: 0 },
+{ pregunta: "Quin impacte té la transformació digital sobre la cultura empresarial?", opciones: ["Canvia la manera de prendre decisions i operacions", "No té impacte", "Redueix la productivitat", "Augmenta residus"], respuesta: 0 },
+//Punt3
+{pregunta: "Quina tecnologia ha generat un mercat per a dispositius de llar intel·ligent?", opciones: ["IoT", "Blockchain", "Realitat Augmentada", "Inteligència Artificial"], respuesta: 0 },
+{ pregunta: "Quin sector utilitza la intel·ligència artificial per a diagnòstics mèdics personalitzats?", opciones: ["Comerç i Màrqueting", "Assistència Sanitària", "Logística i Cadena de Subministrament", "Automatització Industrial"], respuesta: 1 },
+{ pregunta: "Quina és una aplicació destacada de la tecnologia Blockchain en el sector logístic?", opciones: ["Millora de la seguretat dels sistemes bancaris", "Seguiment de la traçabilitat dels productes", "Assistència en la creació de productes personalitzats", "Anàlisi predictiva de tendències de consum"], respuesta: 1 },
+{ pregunta: "Quin tipus de serveis creixentment utilitza el model SaaS?", opciones: ["Emmagatzematge de dades en el núvol", "Serveis de software basats en la núvol", "Automatització de processos industrials", "Prototipat de models 3D"], respuesta: 1 },
+{ pregunta: "Quina aplicació de les tecnologies de Realitat Augmentada és important en la formació?", opciones: ["Simulació en medicina i aviació", "Jocs interactius en el món de l'entreteniment", "Gestió de la cadena de subministrament", "Optimització de la fabricació additiva"], respuesta: 0 },
+{ pregunta: "Com la robòtica avançada contribueix a la indústria?", opciones: ["Permet la creació de productes personalitzats", "Facilita la fabricació amb materials reciclats", "Automatitza tasques de fabricació i logística", "Realitza anàlisi predictiva de dades"], respuesta: 2 },
+{ pregunta: "Quina tecnologia s'utilitza per a millorar l'experiència del client mitjançant recomanacions personalitzades?", opciones: ["Big Data", "Blockchain", "Intel·ligència Artificial", "Impressió 3D"], respuesta: 2 },
+{ pregunta: "Quina tecnologia facilita la monitorització en temps real de màquines en una planta?", opciones: ["IoT", "Robòtica Avançada", "Blockchain", "Realitat Virtual"], respuesta: 0 },
+{ pregunta: "Quina és una aplicació de Big Data en el sector sanitari?", opciones: ["Diagnòstics de malalties a través d'IA", "Millora de la gestió de la salut i benestar", "Automatització dels processos de fabricació", "Anàlisi de la cadena de subministrament"], respuesta: 1 },
+{ pregunta: "Quina tecnologia es fa servir en el desenvolupament de productes personalitzats en la indústria?", opciones: ["Blockchain", "Impressió 3D", "IoT", "Intel·ligència Artificial"], respuesta: 1 },
+{ pregunta: "Com les THD afecten les estratègies de negoci de les empreses?", opciones: ["Milloren la qualitat de la producció", "Faciliten la interacció amb clients i millorant les operacions", "Redueixen la necessitat d'automatització", "Eliminant els costos d'infraestructura"], respuesta: 1 },
+{ pregunta: "Quina és la funció principal de la plataforma SaaS en petites i mitjanes empreses?", opciones: ["Proporcionar accés a tecnologies avançades", "Optimitzar la fabricació de productes", "Automatitzar processos logístics", "Generar productes personalitzats per clients"], respuesta: 0 },
+{ pregunta: "Quin impacte té la integració de Blockchain en la cadena de subministrament?", opciones: ["Redueix la necessitat d'automatització", "Millora la transparència i seguretat", "Aumenta els costos operatius", "Simplifica la producció de prototips"], respuesta: 1 },
+{ pregunta: "Quina tecnologia utilitzen les empreses per millorar la sostenibilitat i eficiència energètica?", opciones: ["Big Data", "IoT", "Blockchain", "Intel·ligència Artificial"], respuesta: 1 },
+{ pregunta: "Quin mercat ha estat impulsat per la fabricació additiva i impressió 3D?", opciones: ["Prototipat ràpid i producció personalitzada", "Assistència sanitària", "Anàlisi de dades predictiva", "Criptomonedes i finances"], respuesta: 0 },
+{ pregunta: "Com impacta la Realitat Virtual en el sector de la formació?", opciones: ["Permet la creació de prototips de productes", "Facilita la simulació de situacions reals per a l'aprenentatge", "Millora l'eficiència de la producció", "Millora les estratègies de màrqueting"], respuesta: 1 },
+{ pregunta: "Quina tecnologia permet el control de la producció en temps real?", opciones: ["IoT", "SaaS", "Robòtica Avançada", "Impressió 3D"], respuesta: 0 },
+{ pregunta: "Quins avantatges ofereixen les tecnologies habilitadores digitals a les petites empreses?", opciones: ["Accés a tecnologies avançades i reducció de costos", "Millora de la transparència de la cadena de subministrament", "Major capacitat de fabricació personalitzada", "Reducció de la necessitat d'automatització"], respuesta: 0 },
+{ pregunta: "Quines tecnologies poden ajudar a millorar l'experiència del client?", opciones: ["SaaS i IA", "IoT i Blockchain", "Big Data i Robòtica", "Cloud Computing i AR/VR"], respuesta: 0 },
+{ pregunta: "Quina de les següents afirmacions sobre IoT és correcta?", opciones: ["Facilita la personalització de productes", "Permet la monitorització en temps real", "Aquesta tecnologia s'utilitza en el sector de les finances", "No té aplicacions en la indústria"], respuesta: 1 },
+{ pregunta: "Quina tecnologia és clau per a l'automatització de processos industrials?", opciones: ["Intel·ligència Artificial", "Robòtica Avançada", "Blockchain", "Impressió 3D"], respuesta: 1 },
+{ pregunta: "Quin efecte té la digitalització en la planta d'una empresa?", opciones: ["Augmenta la qualitat dels productes i la sostenibilitat", "Redueix els costos d'infraestructura", "Elimina la necessitat de productes personalitzats", "Millora la transparència en la cadena de subministrament"], respuesta: 0 },
+{ pregunta: "Quin impacte té l'ús de Big Data en la creació de productes?", opciones: ["Facilita la personalització en el desenvolupament de productes", "Millora la capacitat de fabricació additiva", "Redueix la necessitat de la robòtica avançada", "Elimina la necessitat d'Internet de les Coses"], respuesta: 0 },
+{ pregunta: "Com les empreses utilitzen la robòtica avançada en la producció?", opciones: ["Per a la fabricació de prototips", "Per a l'automatització de processos i millora de la productivitat", "Per a la gestió de la cadena de subministrament", "Per a millorar l'experiència del client"], respuesta: 1 },
+{ pregunta: "Quina tecnologia facilita la creació de models virtuals abans de la producció física?", opciones: ["AR i Simulació Digital", "IoT i Big Data", "Cloud Computing", "Blockchain"], respuesta: 0 },
+{ pregunta: "Quina tecnologia facilita la predicció de comportaments dels consumidors?", opciones: ["Big Data", "Impressió 3D", "IoT", "Realitat Augmentada"], respuesta: 0 },
+{ pregunta: "Quina és una de les aplicacions de Blockchain en el sector financer?", opciones: ["Gestió de la cadena de subministrament", "Transferència de valor sense intermediaris", "Automatització industrial", "Prototipat de dissenys 3D"], respuesta: 1 },
+{ pregunta: "Quina tecnologia s'aplica per a la creació de sistemes de seguretat en llars intel·ligents?", opciones: ["IoT", "Robòtica Avançada", "Big Data", "Intel·ligència Artificial"], respuesta: 0 },
+//Punt4
+{ pregunta: "Quin és l'objectiu principal de la transformació digital segons el text?", opciones: ["Millorar el màrqueting", "Incrementar l'eficiència, productivitat i competitivitat", "Reduir els empleats", "Substituir la tecnologia antiga"], respuesta: 2 },
+{ pregunta: "Com poden les THD contribuir a una economia sostenible?", opciones: ["Augmentant el consum de recursos", "Minimitzant impactes ambientals i optimitzant recursos", "Reduint la productivitat", "Substituint el treball humà per complet"], respuesta: 2 },
+{ pregunta: "Quina és la relació entre transformació digital i sostenibilitat?", opciones: ["Són conceptes separats", "La digitalització fomenta pràctiques sostenibles", "La sostenibilitat limita la tecnologia", "No tenen impacte conjunt"], respuesta: 2 },
+{ pregunta: "Quin benefici principal obté una PiME implementant sensors IoT per a l'eficiència energètica?", opciones: ["Millorar la imatge de marca", "Reduir costos energètics i optimitzar calefacció i refrigeració", "Aconseguir més clients", "Automatitzar el màrqueting"], respuesta: 2 },
+{ pregunta: "Quin exemple s'indica per a una gran empresa en eficiència energètica?", opciones: ["Walmart utilitza sensors IoT", "Schneider Electric usa sistemes d'automatització energètica", "Tesla fabrica bateries", "Amazon automatitza embalatges"], respuesta: 2 },
+{ pregunta: "Com millora la cadena de subministrament mitjançant blockchain en una PiME?", opciones: ["Incrementant els costos logístics", "Millorant traçabilitat i reduint residus", "Substituint empleats per robots", "Reduint la producció"], respuesta: 2 },
+{ pregunta: "Quin és l'exemple de GE per a la cadena de subministrament?", opciones: ["Tesla utilitza IA per fabricar cotxes", "Walmart utilitza blockchain per traçabilitat i seguretat alimentària", "Schneider Electric optimitza energia", "Amazon automatitza embalatges"], respuesta: 2 },
+{ pregunta: "Com pot una PiME fomentar la sostenibilitat en productes?", opciones: ["Dissenyant envasos biodegradables i utilitzant materials reciclats", "Augmentant la producció de plàstic", "Reduint qualitat dels productes", "Evitar la digitalització"], respuesta: 2 },
+{ pregunta: "Quin és l'exemple d'una GE en sostenibilitat de productes?", opciones: ["Tesla desenvolupa cotxes elèctrics i bateries d'alta eficiència", "Walmart usa blockchain", "Amazon automatitza processos", "Schneider Electric gestiona energia"], respuesta: 2 },
+{ pregunta: "Quin benefici aporta l'automatització de processos a una PiME?", opciones: ["Reducció de costos i dependència de mà d'obra manual", "Augment de residus", "Disminució de la productivitat", "Increment de l'impacte ambiental"], respuesta: 2 },
+{ pregunta: "Com implementa una GE l'automatització de processos?", opciones: ["Tesla fabrica bateries", "Amazon utilitza robots automatitzats en centres de distribució", "Schneider Electric monitoritza energia", "Walmart rastreja productes"], respuesta: 2 },
+{ pregunta: "Quin avantatge proporciona l'analítica avançada i Big Data a una PiME?", opciones: ["Reduir els empleats", "Millorar preses de decisions i eficiència", "Augmentar residus", "Reduir seguretat de dades"], respuesta: 2 },
+{ pregunta: "Com utilitza una GE Big Data segons el text?", opciones: ["Netflix analitza preferències d'usuaris per recomanacions personalitzades", "Tesla fabrica bateries", "Amazon automatitza embalatges", "Walmart rastreja productes"], respuesta: 2 },
+{ pregunta: "Com contribueix la transformació digital al treball remot?", opciones: ["Incrementant emissions de CO2", "Facilitant flexibilitat laboral i reduint emissions de desplaçaments", "Reduint l'ús de tecnologia", "Impulsant només grans corporacions"], respuesta: 2 },
+{ pregunta: "Quines tecnologies emergents s'integren en la transformació digital?", opciones: ["Internet de les Coses, IA, blockchain i analítica avançada", "Només sensors IoT", "Només robòtica", "Només Cloud computing"], respuesta: 2 },
+{ pregunta: "Com poden les THD ajudar a optimitzar la cadena de subministrament?", opciones: ["Incrementant residus", "Millorant visibilitat i reduint ús excessiu de recursos", "Substituint productes", "Augmentant consum energètic"], respuesta: 2 },
+{ pregunta: "Quin paper té l'IA en el desenvolupament de productes sostenibles?", opciones: ["Augmenta el consum de recursos", "Permet dissenyar productes més eficients i menys contaminants", "Redueix la innovació", "Evita l'automatització"], respuesta: 2 },
+{ pregunta: "Com pot blockchain promoure models de negoci circulars?", opciones: ["Creant més residus", "Rastrejant materials des del seu origen fins al final de vida", "Reduint transparència", "Substituint treball humà"], respuesta: 2 },
+{ pregunta: "Quina és la funció de les plataformes digitals en educació i conscienciació ambiental?", opciones: ["Reduir accés a informació", "Educar i conscienciar sobre sostenibilitat i canvi climàtic", "Impulsar contaminació", "Substituir governs"], respuesta: 2 },
+{ pregunta: "Com millora la monitorització ambiental avançada la resposta al canvi climàtic?", opciones: ["Incrementant emissions", "Proporcionant dades en temps real per predir i prevenir riscos", "Reduint eficiència", "Només beneficiant grans empreses"], respuesta: 2 },
+{ pregunta: "Quin benefici té l'eficiència energètica intel·ligent amb IoT i IA?", opciones: ["Augmentar consum energètic", "Reduir emissions de gasos d'efecte hivernacle i demanda energètica", "Reduir productivitat", "Incrementar residus"], respuesta: 2 },
+{ pregunta: "Com contribueix el transport sostenible a la mitigació del canvi climàtic?", opciones: ["Reduint eficiència", "Millorant rutes i gestió de flotes per reduir emissions i congestió", "Incrementant contaminació", "Només monitoritzant trànsit"], respuesta: 2 },
+{ pregunta: "Quina tecnologia permet optimitzar la gestió de residus?", opciones: ["Blockchain", "Sistemes basats en IoT", "Analítica avançada", "Telemedicina"], respuesta: 2 },
+{ pregunta: "Com ajuda l'agricultura de precisió a la seguretat alimentària?", opciones: ["Incrementant l'ús de productes químics", "Millorant gestió d'aigua, reduint químics i augmentant productivitat", "Reduint rendiment agrícola", "Només controlant plagues"], respuesta: 2 },
+{ pregunta: "Quin és l'impacte de combinar THD i SD en una empresa?", opciones: ["Augmentar costos sense beneficis", "Adaptar l'empresa, promoure producció sostenible i reduir costos", "Substituir empleats completament", "Augmentar emissions"], respuesta: 2 },
+{ pregunta: "Com pot una empresa digital contribuir als ODS?", opciones: ["Només augmentant beneficis", "Usant digitalització com a eina per assolir objectius globals de sostenibilitat", "Reduint innovació", "Evitar implementació de THD"], respuesta: 2 },
+{ pregunta: "Com poden les microfinances digitals contribuir a l'ODS Fi de la pobresa?", opciones: ["Augmentant la desigualtat", "Oferint serveis financers a comunitats de difícil accés", "Incrementant emissions de CO2", "Reduint l'abast de l'empresa"], respuesta: 2 },
+{ pregunta: "Com pot la tecnologia digital millorar la seguretat alimentària?", opciones: ["Incrementant residus", "Optimitzant aigua i fertilitzants en agricultura per augmentar rendiment", "Reduint qualitat dels cultius", "Evitar digitalització agrícola"], respuesta: 2 },
+{ pregunta: "Quin paper té la telemedicina en l'ODS Salut i benestar?", opciones: ["Reduir accés a serveis", "Facilitar accés a salut en zones remotes i gestionar salut personal", "Incrementar desigualtat sanitària", "Només en grans ciutats"], respuesta: 2 },
+{ pregunta: "Com poden les plataformes d'ensenyament en línia contribuir a l'ODS Educació de qualitat?", opciones: ["Disminuint accés a informació", "Potenciant aprenentatge personalitzat i a distància", "Impulsant exclusivament escoles privades", "Només per universitats"], respuesta: 2 },
+{ pregunta: "Com poden les tecnologies digitals promoure la igualtat de gènere?", opciones: ["Reduint oportunitats", "Oferint accés a educació, feina i xarxes de suport per a dones", "Només monitoritzant treballadors", "Limitant la participació femenina"], respuesta: 2 },
+{ pregunta: "Com poden les xarxes intel·ligents contribuir a energia assequible i no contaminant?", opciones: ["Augmentant costos", "Distribuint millor energia renovable i reduint consum", "Incrementant emissions", "Només per grans corporacions"], respuesta: 2 },
+{ pregunta: "Com pot la digitalització impulsar treball decent i creixement econòmic?", opciones: ["Eliminant llocs de treball", "Creant nous llocs i models de negoci inclusius", "Reduint innovació", "Només beneficiant grans empreses"], respuesta: 2 },
+{ pregunta: "Com pot la impressió 3D contribuir a indústria, innovació i infraestructura?", opciones: ["Reduint eficiència", "Revolucionant la producció industrial fent-la més ràpida, barata i sostenible", "Incrementant residus", "Només per investigació"], respuesta: 2 },
+{ pregunta: "Quina eina digital pot ajudar a reduir desigualtats?", opciones: ["Blockchain", "Plataformes digitals d'informació i serveis", "IoT en agricultura", "Automatització de processos"], respuesta: 2 },
+{ pregunta: "Com poden Big Data i IoT millorar les ciutats sostenibles?", opciones: ["Incrementant consum", "Optimitzant trànsit, residus i eficiència energètica", "Només monitoritzant sensors", "Reduint qualitat de vida"], respuesta: 2 },
+{ pregunta: "Com poden els sistemes digitals promoure consum i producció responsables?", opciones: ["Incrementant residus", "Optimitzant materials, reduint residus i impulsant reciclatge", "Reduint eficiència energètica", "Només per grans empreses"], respuesta: 2 },
+{ pregunta: "Com pot l'anàlisi de dades massives ajudar a l'acció pel clima?", opciones: ["Ignorant patrons climàtics", "Modelant i predint patrons climàtics per planificar mitigació", "Augmentant emissions", "Només monitoritzant desastres naturals"], respuesta: 2 },
+{ pregunta: "Quines tecnologies poden protegir la vida submarina?", opciones: ["Sensors remots i dades de satèl·lit", "RPA i robots", "Big Data en comerç", "Telemedicina"], respuesta: 2 },
+{ pregunta: "Com es protegeixen els ecosistemes terrestres amb tecnologia?", opciones: ["Sensors remots i GIS per monitoritzar deforestació i biodiversitat", "Impressió 3D", "Blockchain en finances", "Automatització de processos"], respuesta: 2 },
+{ pregunta: "Quin paper té la blockchain en pau, justícia i institucions sòlides?", opciones: ["Augmentant corrupció", "Millorant transparència i rendició de comptes", "Reduint eficiència", "Només monitoritzant dades"], respuesta: 2 },
+{ pregunta: "Com poden les plataformes digitals fomentar aliances per assolir els ODS?", opciones: ["Disminuint col·laboració", "Facilitant cooperació entre governs, empreses i societat civil", "Només creant bases de dades", "Reduint innovació social"], respuesta: 2 },
+//Punt5
+{ pregunta: "Quines són les tecnologies associades a l'automatització en IT?", opciones: ["Cloud Computing, RPA, ERP, CRM", "IoT, 5G, Fibra Òptoca", "Ciberseguretat avançada, Blockchain", "Big Data, IA, Machine Learning"], respuesta: 0 },
+{ pregunta: "Quines tecnologies operacionals s'utilitzen per a l'automatització?", opciones: ["PLCs, SCADA, MES", "Sensors, Actuadors, xarxes de comunicació específiques", "Blockchain, Big Data, IA", "Ciberseguretat, ERP, Cloud Computing"], respuesta: 0 },
+{ pregunta: "Quines són les millores identificades per l'automatització en IT?", opciones: ["Reducció de costos operatius, millora de l'eficiència, integració de dades", "Millora de la seguretat industrial", "Augment de la capacitat de producció", "Millora en la personalització de serveis al client"], respuesta: 0 },
+{ pregunta: "Quines tecnologies afavoreixen la connectivitat en IT?", opciones: ["IoT, 5G, Fibra Òptoca", "PLC, SCADA, MES", "Anàlisi de dades, IA, Blockchain", "Cloud Computing, ERP, CRM"], respuesta: 0 },
+{ pregunta: "Quines tecnologies operacionals milloren la connectivitat?", opciones: ["Sensors, Actuadors, xarxes de comunicació específiques", "Big Data, IA, Machine Learning", "5G, Wi-Fi", "Ciberseguretat avançada, Blockchain"], respuesta: 0 },
+{ pregunta: "Quines són les millores identificades per la connectivitat en IT?", opciones: ["Millora de la supervisió i control en temps real", "Augment de la producció", "Millora de la seguretat física", "Optimització del manteniment preventiu"], respuesta: 0 },
+{ pregunta: "Quines tecnologies s'utilitzen per millorar la seguretat en IT?", opciones: ["Ciberseguretat avançada, Blockchain", "Cloud Computing, RPA", "IoT, 5G", "PLCs, SCADA"], respuesta: 0 },
+{ pregunta: "Quines tecnologies operacionals ajuden a la seguretat?", opciones: ["Seguretat industrial, protocols de comunicació segurs", "IoT, Big Data, IA", "Sensors, actuadors, xarxes de comunicació", "RPA, ERP, CRM"], respuesta: 0 },
+{ pregunta: "Quines són les millores identificades per la seguretat en IT?", opciones: ["Reducció de riscos de ciberseguretat, protecció de dades", "Optimització de la producció", "Millora de la logística", "Millora del rendiment industrial"], respuesta: 0 },
+{ pregunta: "Quines són les tecnologies en IT per a l'anàlisi de dades?", opciones: ["Big Data, IA i Machine Learning", "Ciberseguretat avançada, Blockchain", "IoT, 5G", "ERP, CRM, RPA"], respuesta: 0 },
+{ pregunta: "Quines tecnologies operacionals es fan servir per a l'anàlisi de dades?", opciones: ["Analítica de processos, diagnòstic de maquinària", "IoT, Big Data", "Sensors, actuadors, xarxes de comunicació", "Cloud Computing, RPA"], respuesta: 0 },
+{ pregunta: "Quines millores es produeixen a través de l'anàlisi de dades en IT?", opciones: ["Optimització de la producció, previsió de manteniment predictiu", "Millora en la personalització de serveis", "Reducció de costos operatius", "Millora en la seguretat de la xarxa"], respuesta: 0 },
+{ pregunta: "Quines tecnologies afavoreixen l'eficiència energètica en IT?", opciones: ["IoT per la gestió energètica, sensors", "Ciberseguretat, Blockchain", "5G, Fibra òptica", "Cloud Computing, ERP, RPA"], respuesta: 0 },
+{ pregunta: "Quines tecnologies operacionals ajuden a l'eficiència energètica?", opciones: ["Automatització de sistemes, control de consum energètic", "IoT, 5G", "Big Data, IA", "Cloud Computing, ERP"], respuesta: 0 },
+{ pregunta: "Quines millores s'aconsegueixen a través de l'eficiència energètica en IT?", opciones: ["Reducció del consum d'energia, optimització dels recursos", "Millora de la seguretat cibernètica", "Augment de la capacitat de producció", "Millora de la qualitat dels productes"], respuesta: 0 },
+{ pregunta: "Quina característica defineix l'Internet de les Coses (IoT)?", opciones: ["Connectivitat de dispositius, recollida de dades en temps real", "Processament de grans volums de dades", "Automatització física en tasques repetitives", "Protecció de sistemes informàtics"], respuesta: 0 },
+{ pregunta: "On s'aplica principalment l'IoT?", opciones: ["Gestió intel·ligent de la cadena de subministrament, monitoratge de maquinària", "Prototipatge ràpid, fabricació de peces de substitució", "Assistència tècnica remota, entrenament virtual", "Navegació GPS, serveis basats en ubicació"], respuesta: 0 },
+{ pregunta: "Quina aplicació té Big Data i Analítica de Dades?", opciones: ["Processament de grans volums de dades, generació de tendències", "Creació de productes mitjançant materials en capes successives", "Processament de dades a prop de la font d'origen", "Defensa d'infraestructures crítiques"], respuesta: 0 },
+{ pregunta: "On s'utilitza Big Data i Analítica de Dades?", opciones: ["Personalització de serveis al client, optimització de la cadena de subministrament", "Filtratge de correu brossa, diagnòstic mèdic", "Gestió de cadena d'aprovisionament, contractes intel·ligents", "Emmagatzematge de dades, processament de dades massives"], respuesta: 0 },
+{ pregunta: "Quina característica defineix la Intel·ligència Artificial (IA)?", opciones: ["Aprenentatge i adaptació autònoma, presa de decisions basada en dades", "Creació de productes mitjançant capes successives de materials", "Anàlisi de processos industrials, diagnòstic de maquinària", "Protecció de dades personals i corporatives"], respuesta: 0 },
+{ pregunta: "On s'aplica la Intel·ligència Artificial (IA)?", opciones: ["Assistència virtual, automatització de processos, vehicles autònoms", "Navegació GPS, serveis basats en ubicació", "Emmagatzematge de dades, processament de dades massives", "Filtratge de correu brossa, recomanacions de productes"], respuesta: 0 },
+{ pregunta: "Què defineix l'Aprenentatge Automàtic (Machine Learning)?", opciones: ["Capacitat d'aprendre de les dades, ajust constant de models predictius", "Alta velocitat, baixa latència i connectivitat massiva d'objectes", "Creació de productes mitjançant materials en capes successives", "Protecció de dades mitjançant protocols de comunicació segurs"], respuesta: 0 },
+{ pregunta: "Quines són les aplicacions de l'Aprenentatge Automàtic?", opciones: ["Filtratge de correu brossa, recomanacions de productes, diagnòstic mèdic", "Protecció de dades, transparència i seguretat", "Assistència tècnica remota, educació i formació", "Emmagatzematge de dades, processament de dades massives"], respuesta: 0 },
+  ];
+
+  // 📗 RA2: Banc de preguntes
+  const preguntasRA2 = [
+{ pregunta: "Quines tecnologies s'inclouen dins de les THD?", opciones: ["Intel·ligència artificial, big data, IoT, fabricació additiva, computació al núvol i realitat augmentada", "Blockchain, realitat augmentada, big data, IoT, robòtica i computació al núvol", "Robòtica, intel·ligència artificial, big data, realitat virtual, blockchain i IoT", "Big data, robòtica, computació al núvol, IoT, fabricació additiva i realitat virtual"], respuesta: 1 },
+{ pregunta: "Quin és el benefici principal de l'automatització de processos amb THD?", opciones: ["Reducció de costos i errors humans", "Millora de la qualitat dels productes", "Augment de la sostenibilitat ambiental", "Increment de la formació laboral"], respuesta: 2 },
+{ pregunta: "Com contribueixen les tecnologies com IoT i la robòtica a la millora de l'eficiència operativa?", opciones: ["Optimitzant processos de producció i realitzant manteniment predictiu", "Substituint els treballadors humans per màquines", "Disminuint la necessitat de formació", "Substituint el paper del big data en la presa de decisions"], respuesta: 1 },
+{ pregunta: "Quina és una aplicació de la gestió basada en dades en la indústria?", opciones: ["Manteniment predictiu per evitar avaries", "Fabricació de productes personalitzats", "Optimització de cadenes de subministrament", "Reducció de desplaçaments laborals"], respuesta: 3 },
+{ pregunta: "Quines solucions tecnològiques poden ajudar a una millor gestió de les cadenes de subministrament?", opciones: ["Blockchain i IA", "Blockchain i computació al núvol", "Realitat augmentada i big data", "Robòtica i impressió 3D"], respuesta: 1 },
+{ pregunta: "Quin avantatge aporta la fabricació additiva en la qualitat del producte?", opciones: ["Permet la personalització massiva dels productes", "Millora la producció en massa", "Optimitza els processos de producció en cadena", "Redueix la necessitat de mà d'obra"], respuesta: 2 },
+{ pregunta: "Com contribueix l'IoT a la millora de la qualitat dels productes?", opciones: ["Monitoritzant els productes de manera contínua i identificant anomalies", "Optimitzant el disseny dels productes en temps real", "Substituint la producció humana", "Estalviant recursos per a la fabricació de productes"], respuesta: 1 },
+{ pregunta: "Quina tecnologia s'utilitza per millorar el servei al client a gran escala?", opciones: ["Chatbots impulsats per IA", "Robòtica", "Impressió 3D", "Realitat augmentada"], respuesta: 2 },
+{ pregunta: "Quina pràctica sostenible es fomenta mitjançant l'ús de blockchain?", opciones: ["Economia circular i reciclatge", "Reducció de la petjada de carboni", "Fabricació més ràpida", "Millora de la qualitat del producte"], respuesta: 3 },
+{ pregunta: "Quin exemple demostra com les THD ajuden a la sostenibilitat ambiental?", opciones: ["Els edificis intel·ligents gestionant el consum d'energia", "El manteniment predictiu utilitzant big data", "La producció massiva de productes personalitzats", "L'automatització de tasques repetitives a les fàbriques"], respuesta: 1 },
+{ pregunta: "Com contribueix la fabricació additiva a la sostenibilitat?", opciones: ["Redueix els residus utilitzant només el material necessari", "Augmenta la producció en massa", "Millora la qualitat del producte de manera indirecta", "Optimitza la distribució de productes"], respuesta: 2 },
+{ pregunta: "Quina és la relació entre la sostenibilitat i la fabricació additiva?", opciones: ["Reducció dels residus mitjançant la utilització només de material necessari", "Millora de la qualitat del producte", "Increment de la producció en massa", "Disminució del cost de producció"], respuesta: 0 },
+{ pregunta: "Quines tecnologies ajuden a minimitzar la necessitat de desplaçaments físics?", opciones: ["Realitat virtual i eines de col·laboració remota", "IoT i big data", "Impressió 3D i robòtica", "Intel·ligència artificial i blockchain"], respuesta: 3 },
+{ pregunta: "Quins són els reptes a l'hora d'implementar les THD?", opciones: ["Cost inicial elevat i necessitats de formació del personal", "Limitacions tècniques en la infraestructura existent", "Disponibilitat de recursos humans i econòmics", "Falta de polítiques públiques adequades"], respuesta: 0 },
+{ pregunta: "Quins aspectes es veuen afectats per la implementació de les THD en una organització?", opciones: ["El cost inicial, la formació del personal i la seguretat de dades", "Només el cost inicial", "Només la formació del personal", "Només la seguretat de dades"], respuesta: 3 },
+{ pregunta: "Per què les petites i mitjanes empreses poden tenir dificultats per adoptar les THD?", opciones: ["Per la manca de recursos per accedir a aquestes tecnologies", "Per la falta d'interès en innovar", "Per la complexitat de la implementació", "Per la falta de formació interna en aquestes tecnologies"], respuesta: 2 },
+{ pregunta: "Quina recomanació es fa per millorar l'ús de les THD en el sector empresarial?", opciones: ["Promoure iniciatives d'educació i formació per al personal", "Limitar les inversions en tecnologies avançades", "Reduir l'ús de tecnologies com la IA i IoT", "Adoptar només tecnologies de baix cost"], respuesta: 1 },
+{ pregunta: "Quina estratègia és fonamental per maximitzar el potencial de les THD?", opciones: ["Combinar innovació tecnològica amb objectius de sostenibilitat", "Adoptar només les tecnologies més econòmiques", "Prioritzar la formació només a la direcció", "Eliminar el paper del personal en la implementació de les THD"], respuesta: 2 },
+{ pregunta: "Quins són els beneficis de l'optimització energètica gràcies a les THD?", opciones: ["Reducció de la petjada de carboni i estalvi de recursos", "Millora de la producció en cadena", "Augment de la competitivitat empresarial", "Personalització dels productes a gran escala"], respuesta: 3 },
+{ pregunta: "Quina tecnologia permet el manteniment predictiu en la indústria?", opciones: ["IoT i big data", "Blockchain", "Impressió 3D", "Realitat augmentada"], respuesta: 1 },
+{ pregunta: "Com milloren les THD la qualitat dels serveis al client?", opciones: ["Mitjançant l'ús de chatbots i plataformes omnicanal", "Automatitzant el procés de fabricació de productes", "Disminuint el cost dels productes", "Reduint els temps de desplaçament dels empleats"], respuesta: 1 },
+{ pregunta: "Quines són les aplicacions clau de l'IA en l'eficiència operativa?", opciones: ["Automatització de processos i optimització logística", "Fabricació personalitzada de productes", "Millora de la qualitat del servei al client", "Reducció de la necessitat de recursos humans"], respuesta: 0 },
+{ pregunta: "Com es poden utilitzar les THD per promoure una economia circular?", opciones: ["Utilitzant blockchain per rastrejar el cicle de vida dels productes", "Implementant la robòtica per automatitzar processos", "Reduïnt la qualitat dels productes per a una millor eficiència", "Optimitzant l'ús de materials amb IA"], respuesta: 1 },
+{ pregunta: "Quins són els beneficis de la implementació d'IoT en la qualitat del producte?", "opciones": ["Monitorització contínua i detecció d'anomalies", "Optimització del disseny en temps real", "Fabricació de productes a mida", "Reducció de la producció massiva"], respuesta: 0 }
+  ];
+
+  // 📚 Variables globals
+  let preguntas = [];
+  let totalPreguntas = 30;
+  let preguntaActual = 0;
+  let puntaje = 0;
+  let respuestasUsuario = [];
+  let modoRevision = false;
+  let opcionSeleccionada = null;
+
+  // 📦 Elements del DOM
+  const configContainer = document.getElementById('config-container');
+  const raButtons = document.getElementById('ra-buttons');
+  const numPreguntasButtons = document.getElementById('numPreguntas-buttons');
+  const btnIniciarQuiz = document.getElementById('btnIniciarQuiz');
+
+  const quizContainer = document.getElementById('quiz-container');
+  const preguntaEl = document.getElementById('pregunta');
+  const opcionesEl = document.getElementById('opciones');
+  const resultatEl = document.getElementById('resultat');
+  const btnConfirmar = document.getElementById('btnConfirmar');
+  const btnSeguent = document.getElementById('btnSeguent');
+  const btnAnterior = document.getElementById('btnAnterior');
+  const btnRevision = document.getElementById('btnRevision');
+  const btnReiniciar = document.getElementById('btnReiniciar');
+  const puntuatgeEl = document.getElementById('puntuatge');
+
+  // Funcions per manejar selecció botons configuració
+  function seleccionarBotonEnGrupo(container, boton) {
+    const botones = container.querySelectorAll('button');
+    botones.forEach(b => b.classList.remove('seleccionat'));
+    boton.classList.add('seleccionat');
+  }
+
+  // Esdeveniment per selecció RA
+  raButtons.addEventListener('click', e => {
+    if (e.target.tagName === 'BUTTON') {
+      seleccionarBotonEnGrupo(raButtons, e.target);
+    }
+  });
+
+  // Esdeveniment per selecció nombre de preguntes
+  numPreguntasButtons.addEventListener('click', e => {
+    if (e.target.tagName === 'BUTTON') {
+      seleccionarBotonEnGrupo(numPreguntasButtons, e.target);
+    }
+  });
+
+  // 🧩 Funció per barrejar aleatòriament un array
+  function mezclarArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  // 🎬 Inici del quiz després de configurar
+  btnIniciarQuiz.addEventListener('click', () => {
+    const raElegit = raButtons.querySelector('button.seleccionat').getAttribute('data-value');
+    const cantidadStr = numPreguntasButtons.querySelector('button.seleccionat').getAttribute('data-value');
+
+    // Seleccionar banc de preguntes segons RA
+    if (raElegit === "ra1") {
+      preguntas = [...preguntasRA1];
+    } else if (raElegit === "ra2") {
+      preguntas = [...preguntasRA2];
+    } else {
+      preguntas = [...preguntasRA1, ...preguntasRA2];
+    }
+
+    // Barrejar
+    mezclarArray(preguntas);
+
+    // Quantitat preguntes segons selecció
+    if (cantidadStr === 'todas') {
+      totalPreguntas = preguntas.length;
+    } else {
+      const cantidad = parseInt(cantidadStr);
+      totalPreguntas = (!isNaN(cantidad) && cantidad > 0) ? Math.min(cantidad, preguntas.length) : Math.min(30, preguntas.length);
+    }
+
+    preguntas = preguntas.slice(0, totalPreguntas);
+
+    // Canviar a vista quiz
+    configContainer.style.display = "none";
+    quizContainer.style.display = "block";
+
+    iniciarQuiz();
+  });
+
+  // 🚀 Lògica del quiz
+  function iniciarQuiz() {
+    preguntaActual = 0;
+    puntaje = 0;
+    respuestasUsuario = Array(totalPreguntas).fill(null);
+    modoRevision = false;
+    btnRevision.style.display = "none";
+    btnReiniciar.style.display = "none";
+    btnAnterior.style.display = "block";
+    btnSeguent.style.display = "block";
+    mostrarPregunta();
+  }
+
+  function mostrarPregunta() {
+    const pregunta = preguntas[preguntaActual];
+    const respuesta = respuestasUsuario[preguntaActual];
+
+    preguntaEl.textContent = `Pregunta ${preguntaActual + 1} de ${totalPreguntas}: ${pregunta.pregunta}`;
+    opcionesEl.innerHTML = "";
+    resultatEl.textContent = "";
+    btnConfirmar.disabled = true;
+
+    pregunta.opciones.forEach((opcion, index) => {
+      const btn = document.createElement('button');
+      btn.textContent = opcion;
+      btn.addEventListener('click', () => seleccionarOpcion(index, btn));
+      opcionesEl.appendChild(btn);
+    });
+
+    if (respuesta) {
+      const botones = opcionesEl.querySelectorAll('button');
+      botones.forEach(b => b.disabled = true);
+      botones[respuesta.correctaIndex].classList.add('correcta');
+      if (!respuesta.correcto) {
+        botones[respuesta.seleccionadaIndex].classList.add('incorrecta');
+        resultatEl.textContent = `Incorrecte ❌. La resposta correcta és: ${pregunta.opciones[pregunta.respuesta]}`;
+      } else {
+        resultatEl.textContent = "Correcte! 🤙";
+      }
+      btnConfirmar.disabled = true;
+    }
+
+    btnAnterior.disabled = preguntaActual === 0;
+    btnSeguent.disabled = !respuesta;
+
+    if (modoRevision) {
+      btnConfirmar.style.display = "none";
+      btnSeguent.textContent = preguntaActual === totalPreguntas - 1 ? "Finalitzar revisió" : "Següent";
+      btnSeguent.disabled = false;
+    } else {
+      btnConfirmar.style.display = "block";
+      btnSeguent.textContent = preguntaActual === totalPreguntas - 1 ? "Finalitzar" : "Següent";
+    }
+  }
+
+  function seleccionarOpcion(index, btn) {
+    if (respuestasUsuario[preguntaActual]) return;
+    const botones = opcionesEl.querySelectorAll('button');
+    botones.forEach(b => b.classList.remove('seleccionada'));
+    btn.classList.add('seleccionada');
+    opcionSeleccionada = index;
+    btnConfirmar.disabled = false;
+  }
+
+  btnConfirmar.addEventListener('click', () => {
+    if (opcionSeleccionada === null) return;
+    const pregunta = preguntas[preguntaActual];
+    const botones = opcionesEl.querySelectorAll('button');
+    botones.forEach(b => b.disabled = true);
+
+    const correcto = opcionSeleccionada === pregunta.respuesta;
+
+    if (correcto) {
+      botones[opcionSeleccionada].classList.remove('seleccionada');
+      botones[opcionSeleccionada].classList.add('correcta');
+      resultatEl.textContent = "Correcte! 🤙";
+      puntaje++;
+    } else {
+      botones[opcionSeleccionada].classList.remove('seleccionada');
+      botones[opcionSeleccionada].classList.add('incorrecta');
+      botones[pregunta.respuesta].classList.add('correcta');
+      resultatEl.textContent = `Incorrecte ❌. La resposta correcta és: ${pregunta.opciones[pregunta.respuesta]}`;
+    }
+
+    respuestasUsuario[preguntaActual] = {
+      seleccionadaIndex: opcionSeleccionada,
+      correctaIndex: pregunta.respuesta,
+      correcto
+    };
+
+    btnConfirmar.disabled = true;
+    btnSeguent.disabled = false;
+  });
+
+  btnSeguent.addEventListener('click', () => {
+    if (modoRevision) {
+      if (preguntaActual < totalPreguntas - 1) {
+        preguntaActual++;
+        mostrarPregunta();
+      } else {
+        mostrarResultados();
+      }
+      return;
+    }
+
+    if (preguntaActual < totalPreguntas - 1) {
+      preguntaActual++;
+      opcionSeleccionada = null;
+      mostrarPregunta();
+    } else {
+      mostrarResultados();
+    }
+  });
+
+  btnAnterior.addEventListener('click', () => {
+    if (preguntaActual > 0) {
+      preguntaActual--;
+      opcionSeleccionada = null;
+      mostrarPregunta();
+    }
+  });
+
+  function mostrarResultados() {
+    modoRevision = false;
+    preguntaEl.textContent = "Quiz acabat!";
+    opcionesEl.innerHTML = "";
+    resultatEl.innerHTML = "";
+
+    let resultadoHTML = "<h2>Resultats:</h2><ul>";
+    respuestasUsuario.forEach((r, i) => {
+      const p = preguntas[i];
+      resultadoHTML += `<li><b>Pregunta ${i + 1}:</b> ${p.pregunta}<br>
+        La teva resposta: ${p.opciones[r.seleccionadaIndex]} ${r.correcto ? "✅" : "❌"}<br>
+        Resposta correcta: ${p.opciones[r.correctaIndex]}</li><br>`;
+    });
+    resultadoHTML += "</ul>";
+
+    resultatEl.innerHTML = resultadoHTML;
+    puntuatgeEl.textContent = `Puntuació final: ${puntaje} de ${totalPreguntas}`;
+
+    btnConfirmar.style.display = "none";
+    btnAnterior.style.display = "none";
+    btnSeguent.style.display = "none";
+    btnRevision.style.display = "block";
+    btnReiniciar.style.display = "block";
+  }
+
+  btnRevision.addEventListener('click', () => {
+    modoRevision = true;
+    preguntaActual = 0;
+    btnRevision.style.display = "none";
+    btnReiniciar.style.display = "none";
+    btnAnterior.style.display = "block";
+    btnSeguent.style.display = "block";
+    mostrarPregunta();
+  });
+
+  btnReiniciar.addEventListener('click', () => location.reload());
+
+</script>
+
+</body>
+</html>
+
